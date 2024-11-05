@@ -1,0 +1,10 @@
+# Ignore Files in the MYNN-EDMF directory
+
+# All pre-processed Fortran files in MPAS specific directories
+*.f90
+
+# All object files
+*.o
+
+# All mod files
+*.mod

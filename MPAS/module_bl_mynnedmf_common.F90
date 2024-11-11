@@ -1,6 +1,6 @@
 !====================================================================
 
- module module_mynnedmf_common
+ module module_bl_mynnedmf_common
 
 !------------------------------------------
 !Define Model-specific constants/parameters.
@@ -8,7 +8,7 @@
 !where all model-specific constants are read and saved into
 !memory. This module is then used again in the MYNN-EDMF. All
 !MYNN-specific constants are declared globally in the main
-!module (module_bl_mynn) further below:
+!module (module_bl_mynnedmf) further below:
 !------------------------------------------
 !
 ! The following 5-6 lines are the only lines in this file that are not
@@ -92,4 +92,4 @@
 ! xlvcp  = xlv/cp
 ! g_inv  = 1./grav
 
- end module module_mynnedmf_common
+ end module module_bl_mynnedmf_common

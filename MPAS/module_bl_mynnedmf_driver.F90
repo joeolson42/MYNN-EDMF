@@ -1,9 +1,9 @@
 !=================================================================================================================
- module module_mynnedmf_driver
+ module module_bl_mynnedmf_driver
  use mpas_kind_types,only: kind_phys => RKIND
  use mpas_log
 
- use module_mynnedmf,only: mynnedmf
+ use module_bl_mynnedmf,only: mynnedmf
 
  implicit none
  private
@@ -903,6 +903,6 @@
  end subroutine mynnedmf_post_run
 
 !=================================================================================================================
- end module module_mynnedmf_driver
+ end module module_bl_mynnedmf_driver
 !=================================================================================================================
 

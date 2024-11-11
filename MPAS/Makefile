@@ -6,22 +6,22 @@ dummy:
 	echo "****** compiling MYNN-EDMF PBL Scheme ******"
 
 OBJS = \
-	module_mynnedmf_common.o	\
-	module_mynnedmf.o		\
-	module_mynnedmf_driver.o
+	module_bl_mynnedmf_common.o	\
+	module_bl_mynnedmf.o		\
+	module_bl_mynnedmf_driver.o
 
 mynnedmf: $(OBJS)
 	ar -ru ./../libphys.a $(OBJS)
 
 # DEPENDENCIES:
-module_mynnedmf_common.o: \
+module_bl_mynnedmf_common.o: \
 	../mpas_atmphys_constants.o
 
-module_mynnedmf.o: \
-	module_mynnedmf_common.o
+module_bl_mynnedmf.o: \
+	module_bl_mynnedmf_common.o
 
-module_mynnedmf_driver.o: \
-	module_mynnedmf.o
+module_bl_mynnedmf_driver.o: \
+	module_bl_mynnedmf.o
 
 clean:
 	$(RM) *.f90 *.o *.mod

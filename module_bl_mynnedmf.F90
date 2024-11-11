@@ -254,7 +254,7 @@
 
 MODULE module_mynnedmf
 
- use module_mynnedmf_common,only:                        &
+ use module_bl_mynnedmf_common,only:                    &
        cp        , cpv       , cliq       , cice      , &
        p608      , ep_2      , ep_3       , gtr       , &
        grav      , g_inv     , karman     , p1000mb   , &

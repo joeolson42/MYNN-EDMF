@@ -1867,9 +1867,6 @@ CONTAINS
            !   " pblh=",pblh2," zwk=",zwk," wt=",wt
            !endif
 
-           ! include scale-awareness, except for original MYNN
-           el(k) = el(k)*Psig_bl
-
         END DO
 
      CASE (2) !Local (mostly) mixing length formulation
@@ -2003,15 +2000,16 @@ CONTAINS
          el(k) = SQRT( els**2/(1. + (els**2/elt**2) +(els**2/elb_mf**2)))
          el(k) = el(k)*(1.-wt) + elf*wt
 
-         ! include scale-awareness. For now, use simple asymptotic kz -> 12 m (should be ~dz).
-         el_les= MIN(els/(1. + (els/12.)), elb_mf)
-         el(k) = el(k)*Psig_bl + (1.-Psig_bl)*el_les
-
        END DO
 
     END SELECT
 
-
+    ! include scale-awareness. limit el to be < 0.25*dz)
+    DO k = kts+1,kte
+       el_les = 0.25*half*( dz(k)+dz(k-1) )
+       el(k)  = el(k)*Psig_bl + (1.-Psig_bl)*min(el_les,el(k))
+    ENDDO
+      
 #ifdef HARDCODE_VERTICAL
 # undef kts
 # undef kte
@@ -2844,8 +2842,7 @@ CONTAINS
             &    0.5*TKEprod_up(k)
        pdt(k) = elh*( sh(k)*dtl(k)+gamt )*dtl(k)
        pdq(k) = elh*( sh(k)*dqw(k)+gamq )*dqw(k)
-       pdc(k) = elh*( sh(k)*dtl(k)+gamt )        &
-            &   *dqw(k)*0.5                      &
+       pdc(k) = elh*( sh(k)*dtl(k)+gamt )*dqw(k)*0.5 &
             & + elh*( sh(k)*dqw(k)+gamq )*dtl(k)*0.5
 
        ! Contergradient terms
@@ -3419,15 +3416,20 @@ CONTAINS
     DOUBLE PRECISION :: t3sq, r3sq, c3sq
 
     real(kind_phys):: qsl,esat,qsat,dqsl,cld0,q1k,qlk,eq1,qll,           &
-         &q2p,pt,rac,qt,t,xl,rsl,cpm,Fng,qww,alpha,beta,bb,              &
-         &ls,wt,wt2,qpct,cld_factor,fac_damp,liq_frac,ql_ice,ql_water,   &
+         &q2p,pt,rac,qt,t,xl,rsl,cpm,Fng,qww,alpha,beta,bb,sgmq,sgmc,    &
+         &ls,wt,wt2,cld_factor,fac_damp,liq_frac,ql_ice,ql_water,        &
          &qmq,qsat_tk,q1_rh,rh_hack,zsl,maxqc,cldfra_rh,cldfra_qsq,      &
-         &cldfra_rh0,cldfra_rh1,cldfra_qsq0,cldfra_qsq1
-    real(kind_phys), parameter :: qpct_sfc=0.015
-    real(kind_phys), parameter :: qpct_pbl=0.025
-    real(kind_phys), parameter :: qpct_trp=0.030
-    real(kind_phys), parameter :: rhcrit  =0.83 !for cloudpdf = 2
-    real(kind_phys), parameter :: rhmax   =1.10 !for cloudpdf = 2
+         &cldfra_rh0,cldfra_rh1,cldfra_qsq0,cldfra_qsq1,clim,qlim
+    !lower limits for sgm (for mixing ratio estimates) in case sgm falls out (% of qw)
+    real(kind_phys), parameter :: qlim_sfc =0.007
+    real(kind_phys), parameter :: qlim_pbl =0.020
+    real(kind_phys), parameter :: qlim_trp =0.025
+    !lower limits for sqm (for cloud fraction) in case sgm falls out (% of qw)
+    real(kind_phys), parameter :: clim_sfc =0.010
+    real(kind_phys), parameter :: clim_pbl =0.025
+    real(kind_phys), parameter :: clim_trp =0.030
+    real(kind_phys), parameter :: rhcrit   =0.83 !for cloudpdf = 2
+    real(kind_phys), parameter :: rhmax    =1.10 !for cloudpdf = 2
     integer :: i,j,k
 
     real(kind_phys):: erf
@@ -3630,28 +3632,30 @@ CONTAINS
            !except neglect all but the first term for sig_r
            r3sq   = max( qsq(k), zero )
            !Calculate sigma using higher-order moments:
-           sgm(k) = SQRT( r3sq )
+           sgm(k) = max(1e-13, sqrt( r3sq ))
            !Set constraints on sigma relative to total water
            sgm(k) = min( sgm(k), qw(k)*onethird )
            
            !introduce vertical grid spacing dependence on min sgm
            wt     = min(one, max(zero, dz(k)-100.)/500.) !=0 for dz < 100 m, =1 for dz > 600 m
            sgm(k) = sgm(k) + sgm(k)*0.2*wt !inflate sgm for coarse dz
-
+           !save sgm for mixing ratio and cloud fraction estimates
+           sgmq   = sgm(k)
+           sgmc   = sgm(k)
+           
            !allow minimum sgm to vary with z.
            wt     = min(one, max(zero, (zagl - (pblh2+10.)))/300.) !0 in pbl, 1 aloft
-           qpct   = qpct_pbl*(one-wt) + qpct_trp*wt
+           clim   = clim_pbl*(one-wt) + clim_trp*wt
            zsl    = min(150., max(50., 0.1*pblh2))        !crude ekman layer
            wt     = min(one, max(zero, zagl - zsl)/200.)  !0 near sfc, 1 above 
-           qpct   = qpct_sfc*(one-wt) + qpct*wt
-           sgm(k) = max( sgm(k), qw(k)*qpct )
-
-           !in saturated conditions, apply lower limit on sgm
-           if (qmq .ge. zero) sgm(k) = max(0.02*qw(k), sgm(k))
+           clim   = clim_sfc*(one-wt) + clim*wt
+           sgmc   = max( sgmc, qw(k)*clim )
            !apply absolute lower limit in case qw = 0.
-           sgm(k) = max(1e-13, sgm(k))
+           sgmc   = max(1e-13, sgmc)
+           !For cloud fractions, in saturated conditions, apply lower limit on sgmc
+           if (qmq .ge. zero) sgmc = max(0.02*qw(k), sgmc)
            
-           q1(k)  = qmq  / sgm(k)  ! Q1, the normalized saturation
+           q1(k)  = qmq  / sgmc  ! Q1, the normalized saturation
 
            !Add condition for falling/settling into low-RH layers, so at least
            !some cloud fraction is applied for all qc, qs, and qi.
@@ -3690,34 +3694,45 @@ CONTAINS
            !For clouds within the pbl, force higher saturation to make clouds
            wt2           = min(one, max(zero, (zagl - (pblh1-100.))/200.)) !0 in pbl, 1 aloft
 
-           cldfra_qsq0   = max(zero, min(one, half+0.36*atan(3.1*(q1k))))
-           cldfra_qsq1   = max(zero, min(one, half+0.36*atan(2.1*(q1k+0.2))))
+           cldfra_qsq0   = max(zero, min(one, half+0.35*atan(4.1*(q1k))))
+           cldfra_qsq1   = max(zero, min(one, half+0.37*atan(2.1*(q1k+0.4))))
            cldfra_qsq    = cldfra_qsq0*(one-wt2) + cldfra_qsq1*wt2
 
            !For ceiling detection, apply minimum rh-based cloud fraction
            cldfra_rh0    = min(one, max(zero, 0.56*tanh((rh(k)-0.976)/0.030)+half))
            cldfra_rh1    = min(one, max(zero, 0.55*tanh((rh(k)-0.955)/0.055)+half))
-           cldfra_rh     = cldfra_rh0*(one-wt2) + cldfra_rh1*wt2
+           cldfra_rh     = zero !cldfra_rh0*(one-wt2) + cldfra_rh1*wt2
 
            cldfra_bl1(k) = max(cldfra_qsq, cldfra_rh)
            
-           ! Specify hydrometeors
+           !Specify hydrometeors (grid mean = in-cloud * cloud fraction)
+           !allow minimum sgmq (lower limit of mixing ratios) to vary with z.
+           wt     = min(one, max(zero, (zagl - (pblh2+10.)))/300.) !0 in pbl, 1 aloft
+           qlim   = qlim_pbl*(one-wt) + qlim_trp*wt
+           zsl    = min(150., max(50., 0.1*pblh2)) !height of surface layer
+           wt     = min(one, max(zero, zagl - zsl)/200.)  !0 near sfc, 1 above
+           qlim   = qlim_sfc*(one-wt) + qlim*wt
+           sgmq   = max(sgmq, qw(k)*qlim)
+           
+           ql_water = min(sgmq, 0.025*qw(k))*cldfra_bl1(k)
+           ql_ice   = min(sgmq, 0.025*qw(k))*cldfra_bl1(k)
+
            ! The cloud water formulations are taken from CB02, Eq. 8.
-           maxqc = max(qw(k) - qsat_tk, zero)
-           if (q1k < zero) then        !unsaturated
-              !orig: ql_water = sgm(k)*exp(1.2*q1k-one)
-              !orig: ql_ice   = sgm(k)*exp(1.2*q1k-one)
-              ql_water = min(sgm(k),0.03*qw(k))*cldfra_bl1(k)
-              ql_ice   = min(sgm(k),0.03*qw(k))*cldfra_bl1(k)
-           elseif (q1k > 2.) then !supersaturated
-              ql_water = min(sgm(k)*q1k, maxqc)
-              ql_ice   =     sgm(k)*q1k
-           else                      !slightly saturated (0 > q1 < 2)
-              !orig: ql_water = min(sgm(k)*(exp(-1.) + 0.66*q1k + 0.086*q1k**2), maxqc)
-              !orig: ql_ice   =     sgm(k)*(exp(-1.) + 0.66*q1k + 0.086*q1k**2)
-              ql_water = min(sgm(k),0.02*qw(k))*(exp(-1.) + 0.66*q1k + 0.086*q1k**2)
-              ql_ice   = min(sgm(k),0.02*qw(k))*(exp(-1.) + 0.66*q1k + 0.086*q1k**2)
-           endif
+!           maxqc = max(qw(k) - qsat_tk, zero)
+!           if (q1k < zero) then        !unsaturated
+!              !orig: ql_water = sgm(k)*exp(1.2*q1k-one)
+!              !orig: ql_ice   = sgm(k)*exp(1.2*q1k-one)
+!              ql_water = min(sgm(k),0.03*qw(k))*cldfra_bl1(k)
+!              ql_ice   = min(sgm(k),0.03*qw(k))*cldfra_bl1(k)
+!           elseif (q1k > 2.) then !supersaturated
+!              ql_water = min(sgm(k)*q1k, maxqc)
+!              ql_ice   =     sgm(k)*q1k
+!           else                      !slightly saturated (0 > q1 < 2)
+!              !orig: ql_water = min(sgm(k)*(exp(-1.) + 0.66*q1k + 0.086*q1k**2), maxqc)
+!              !orig: ql_ice   =     sgm(k)*(exp(-1.) + 0.66*q1k + 0.086*q1k**2)
+!              ql_water = min(sgm(k),0.02*qw(k))*(exp(-1.) + 0.66*q1k + 0.086*q1k**2)
+!              ql_ice   = min(sgm(k),0.02*qw(k))*(exp(-1.) + 0.66*q1k + 0.086*q1k**2)
+!           endif
 
            !In saturated grid cells, use average of SGS and resolved values
            !if ( qc(k) > 1.e-6 ) ql_water = 0.5 * ( ql_water + qc(k) ) 
@@ -5953,8 +5968,12 @@ ENDIF
     C = Atot/cn   !Normalize C according to the defined total fraction (Atot)
 
     ! Make updraft area (UPA) a function of the buoyancy flux
-    acfac = half*tanh((fltv2 - 0.02)/0.05) + half
-
+    if ((landsea-1.5) .lt. zero) then  !land
+       acfac = half*tanh((fltv2 - 0.02)/0.05) + half
+    else
+       acfac = half*tanh((fltv2 - 0.012)/0.03) + half
+    endif
+      
     !add a windspeed-dependent adjustment to acfac that tapers off
     !the mass-flux scheme linearly above sfc wind speeds of 13 m/s.
     !Note: this effect may be better represented by an increase in

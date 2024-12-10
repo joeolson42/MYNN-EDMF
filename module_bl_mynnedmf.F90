@@ -2637,7 +2637,7 @@ CONTAINS
        END IF !end Helfand & Labraga check
 
        !Impose broad limits on Sh and Sm:
-       gmelq    = MAX(gmel/q3sq, 1e-8_kind_phys)
+       gmelq    = max(real(gmel/q3sq), 1e-8_kind_phys)
        sm25max  = 4._kind_phys  !MIN(sm20*3.0, SQRT(.1936/gmelq))
        sh25max  = 4._kind_phys  !MIN(sh20*3.0, 0.76*b2)
        sm25min  = zero !MAX(sm20*0.1, 1e-6)
@@ -2650,7 +2650,7 @@ CONTAINS
               sh(k)>sh25max .OR. sm(k)>sm25max) ) THEN
            print*,"In mym_turbulence 2.5: k=",k
            print*," sm=",sm(k)," sh=",sh(k)
-           print*," ri=",ri," Pr=",sm(k)/MAX(sh(k),1e-8)
+           print*," ri=",ri," Pr=",sm(k)/max(sh(k),1e-8_kind_phys)
            print*," gm=",gm(k)," gh=",gh(k)
            print*," q2sq=",q2sq," q3sq=",q3sq, q3sq/q2sq
            print*," qke=",qke(k)," el=",el(k)
@@ -2668,7 +2668,7 @@ CONTAINS
        !IF ( sm(k) < sm25min ) sm(k) = sm25min
 
        !shb   = max(sh(k), 0.002)
-       shb   = max(sh(k), 0.02)
+       shb   = max(sh(k), 0.02_kind_phys)
        sm(k) = min(sm(k), Prlim*shb)
 
 !   **  Level 3 : start  **
@@ -2716,8 +2716,8 @@ CONTAINS
           Req = -aeh/aem
           Rsl = (auh + aum*Req)/(3.*adh + 3.*adm*Req)
           !For now, use default values, since tests showed little/no sensitivity
-          Rsl = .12_kind_phys   !lower limit
-          Rsl2= one - 2.*Rsl    !upper limit
+          Rsl = 0.12_kind_phys   !lower limit
+          Rsl2= one - 2.0_kind_phys*Rsl    !upper limit
           !IF (k==2)print*,"Dynamic limit RSL=",Rsl
           !IF (Rsl < 0.10 .OR. Rsl > 0.18) THEN
           !   print*,'--- ERROR: MYNN: Dynamic Cw '// &
@@ -2842,8 +2842,8 @@ CONTAINS
             &    0.5*TKEprod_up(k)
        pdt(k) = elh*( sh(k)*dtl(k)+gamt )*dtl(k)
        pdq(k) = elh*( sh(k)*dqw(k)+gamq )*dqw(k)
-       pdc(k) = elh*( sh(k)*dtl(k)+gamt )*dqw(k)*0.5 &
-            & + elh*( sh(k)*dqw(k)+gamq )*dtl(k)*0.5
+       pdc(k) = elh*( sh(k)*dtl(k)+gamt )*dqw(k)*half &
+            & + elh*( sh(k)*dqw(k)+gamq )*dtl(k)*half
 
        ! Contergradient terms
        tcd(k) = elq*gamt
@@ -2883,8 +2883,8 @@ CONTAINS
        
        !! Buoyncy term takes the TKEprodTD(k) production now
        qBUOY1(k) = elq*(sh(k)*gh(k)+gamv)   +         &
-       &           0.5*TKEprod_dn(k)        +         & ! xmchen
-       &           0.5*TKEprod_up(k) 
+       &           half*TKEprod_dn(k)       +         & ! xmchen
+       &           half*TKEprod_up(k) 
 
        !!!Dissipation Term (now it evaluated in mym_predict)
        !qDISS1(k) = (q3sq**(3./2.))/(b1*MAX(el(k),1.)) !! ORIGINAL CODE

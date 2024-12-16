@@ -2446,7 +2446,7 @@ CONTAINS
 
     real(kind_phys)::  a2fac, duz, ri !JOE-Canuto/Kitamura mod
 
-    real:: auh,aum,adh,adm,aeh,aem,Req,Rsl,Rsl2,                           &
+    real(kind_phys):: auh,aum,adh,adm,aeh,aem,Req,Rsl,Rsl2,                &
            gmelq,sm20,sh20,sm25max,sh25max,sm25min,sh25min,                &
            sm_pbl,sh_pbl,pblh2,wt,slht,wtpr,mfmax
 
@@ -2637,7 +2637,7 @@ CONTAINS
        END IF !end Helfand & Labraga check
 
        !Impose broad limits on Sh and Sm:
-       gmelq    = max(real(gmel/q3sq), 1e-8_kind_phys)
+       gmelq    = max(real(gmel/q3sq, kind_phys), 1e-8_kind_phys)
        sm25max  = 4._kind_phys  !MIN(sm20*3.0, SQRT(.1936/gmelq))
        sh25max  = 4._kind_phys  !MIN(sh20*3.0, 0.76*b2)
        sm25min  = zero !MAX(sm20*0.1, 1e-6)
@@ -2693,7 +2693,7 @@ CONTAINS
           r3sq = vtt*c3sq +vqq*r3sq
           c3sq = MAX( vtt*t3sq+vqq*r3sq, 0.0d0 )
 !
-          cw25 = e1*( e2 + 3.0*c1*e5c*gmel*qdiv**2 )/( 3.0*eden )
+          cw25 = e1*( e2 + 3.0_kind_phys*c1*e5c*gmel*qdiv**2 )/( 3.0_kind_phys*eden )
 !
 !     **  Limitation on q, instead of L/q  **
           dlsq =  elsq
@@ -2702,22 +2702,22 @@ CONTAINS
 !     **  Limitation on c3sq (0.12 =< cw =< 0.76) **
           ! Use Janjic's (2001; p 13-17) methodology (eqs 4.11-414 and 5.7-5.10)
           ! to calculate an exact limit for c3sq:
-          auh = 27.*a1*((a2*a2fac)**2)*b2*(gtr)**2
-          aum = 54.*(a1**2)*(a2*a2fac)*b2*c1*(gtr)
-          adh = 9.*a1*((a2*a2fac)**2)*(12.*a1 + 3.*b2)*(gtr)**2
-          adm = 18.*(a1**2)*(a2*a2fac)*(b2 - 3.*(a2*a2fac))*(gtr)
+          auh = 27._kind_phys*a1*((a2*a2fac)**2)*b2*(gtr)**2
+          aum = 54._kind_phys*(a1**2)*(a2*a2fac)*b2*c1*(gtr)
+          adh = 9._kind_phys*a1*((a2*a2fac)**2)*(12._kind_phys*a1 + 3._kind_phys*b2)*(gtr)**2
+          adm = 18._kind_phys*(a1**2)*(a2*a2fac)*(b2 - 3._kind_phys*(a2*a2fac))*(gtr)
 
-          aeh = (9.*a1*((a2*a2fac)**2)*b1 +9.*a1*((a2*a2fac)**2)* &
-                (12.*a1 + 3.*b2))*(gtr)
-          aem = 3.*a1*(a2*a2fac)*b1*(3.*(a2*a2fac) + 3.*b2*c1 + &
-                (18.*a1*c1 - b2)) + &
-                (18.)*(a1**2)*(a2*a2fac)*(b2 - 3.*(a2*a2fac))
+          aeh = (9._kind_phys*a1*((a2*a2fac)**2)*b1 +9._kind_phys*a1*((a2*a2fac)**2)*         &
+                (12._kind_phys*a1 + 3._kind_phys*b2))*(gtr)
+          aem = 3._kind_phys*a1*(a2*a2fac)*b1*(3._kind_phys*(a2*a2fac) + 3._kind_phys*b2*c1 + &
+                (18._kind_phys*a1*c1 - b2)) +                                                 &
+                (18._kind_phys)*(a1**2)*(a2*a2fac)*(b2 - 3._kind_phys*(a2*a2fac))
 
           Req = -aeh/aem
-          Rsl = (auh + aum*Req)/(3.*adh + 3.*adm*Req)
+          Rsl = (auh + aum*Req)/(3._kind_phys*adh + 3._kind_phys*adm*Req)
           !For now, use default values, since tests showed little/no sensitivity
           Rsl = 0.12_kind_phys   !lower limit
-          Rsl2= one - 2.0_kind_phys*Rsl    !upper limit
+          Rsl2= one - two*Rsl    !upper limit
           !IF (k==2)print*,"Dynamic limit RSL=",Rsl
           !IF (Rsl < 0.10 .OR. Rsl > 0.18) THEN
           !   print*,'--- ERROR: MYNN: Dynamic Cw '// &
@@ -2825,11 +2825,11 @@ CONTAINS
        cldavg = half*(cldfra_bl1(k-1) + cldfra_bl1(k))
        mfmax  = max(edmf_a1(k)*edmf_w1(k),abs(edmf_a_dd1(k)*edmf_w_dd1(k)))
        ! impose minimum for mass-flux columns
-       sm(k) = max(sm(k), 0.04*min(10.*mfmax,one) )
-       sh(k) = max(sh(k), 0.04*min(10.*mfmax,one) )
+       sm(k) = max(sm(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
+       sh(k) = max(sh(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
        ! impose minimum for clouds
-       sm(k) = max(sm(k), 0.04*min(cldavg,one) )
-       sh(k) = max(sh(k), 0.04*min(cldavg,one) )
+       sm(k) = max(sm(k), 0.04_kind_phys*min(cldavg,one) )
+       sh(k) = max(sh(k), 0.04_kind_phys*min(cldavg,one) )
 !
        elq = el(k)*qkw(k)
        elh = elq*qdiv
@@ -2838,8 +2838,8 @@ CONTAINS
        ! q-variance (pdq), and covariance (pdc)
        pdk(k) = elq*( sm(k)*gm(k)                &
             &        +sh(k)*gh(k)+gamv ) +       &
-            &    0.5*TKEprod_dn(k)       +       & ! xmchen
-            &    0.5*TKEprod_up(k)
+            &   half*TKEprod_dn(k)       +       & ! xmchen
+            &   half*TKEprod_up(k)
        pdt(k) = elh*( sh(k)*dtl(k)+gamt )*dtl(k)
        pdq(k) = elh*( sh(k)*dqw(k)+gamq )*dqw(k)
        pdc(k) = elh*( sh(k)*dtl(k)+gamt )*dqw(k)*half &

@@ -698,9 +698,9 @@
 
 #if (WRF_CHEM == 1)
       if (mix_chem) then
-         do ic = 1,nchem
+         do n = 1,nchem
             do k = kts,kte
-               chem3d(i,k,j,ic) = max(1.e-12, chem(k,ic))
+               chem3d(i,k,j,n) = max(1.e-12, chem(k,n))
             enddo
          enddo
       endif

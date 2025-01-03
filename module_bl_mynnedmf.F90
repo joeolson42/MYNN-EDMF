@@ -1056,7 +1056,7 @@ CONTAINS
 !>  - Call mynn_tendencies() to solve for tendencies of 
 !! \f$U, V, \theta, q_{v}, q_{c}, and q_{i}\f$.
     call mynn_tendencies(kts,kte,i,                      &
-            &delt, dz1, rho1,                            &
+            &delt, dz1, zw1, xland, rho1,                &
             &u1, v1, th1, tk1, qv1,                      &
             &qc1, qi1, kzero1, qnc1, qni1,               & !kzero replaces qs1 - not mixing snow
             &ps, p1, ex1, thl1,                          &
@@ -3833,7 +3833,7 @@ CONTAINS
 !! This subroutine solves for tendencies of U, V, \f$\theta\f$, qv,
 !! qc, and qi
   SUBROUTINE mynn_tendencies(kts,kte,i,       &
-       &delt,dz,rho,                          &
+       &delt,dz,zw,xland,rho,                 &
        &u,v,th,tk,qv,qc,qi,qs,qnc,qni,        &
        &psfc,p,exner,                         &
        &thl,sqv,sqc,sqi,sqs,sqw,              &
@@ -3901,14 +3901,14 @@ CONTAINS
     real(kind_phys), dimension(kts:kte), intent(in) :: sub_thl,sub_sqv,   &
          &sub_u,sub_v,det_thl,det_sqv,det_sqc,det_u,det_v
     real(kind_phys), dimension(kts:kte), intent(in) :: u,v,th,tk,qv,qc,qi,&
-         &qs,qni,qnc,rho,p,exner,dfq,dz,tsq,qsq,cov,tcd,qcd,              &
+         &qs,qni,qnc,rho,p,exner,dfq,dz,zw,tsq,qsq,cov,tcd,qcd,              &
          &cldfra_bl1,diss_heat
     real(kind_phys), dimension(kts:kte), intent(inout) :: thl,sqw,sqv,sqc,&
          &sqi,sqs,qnwfa,qnifa,qnbca,ozone,dfm,dfh
     real(kind_phys), dimension(kts:kte), intent(inout) :: du,dv,dth,dqv,  &
          &dqc,dqi,dqs,dqni,dqnc,dqnwfa,dqnifa,dqnbca,dozone
     real(kind_phys), intent(in) :: flt,flq,flqv,flqc,uoce,voce
-    real(kind_phys), intent(in) :: ust,delt,psfc,wspd
+    real(kind_phys), intent(in) :: ust,delt,psfc,wspd,xland
     !debugging
     real(kind_phys):: wsp,wsp2,tk2,th2
     logical :: problem
@@ -3925,18 +3925,25 @@ CONTAINS
     real(kind_phys), dimension(kts:kte) :: a,b,c,d,x
     real(kind_phys), dimension(kts:kte+1) :: rhoz,                        & !rho on model interface
           &khdz,kmdz
-    real(kind_phys):: rhs,gfluxm,gfluxp,dztop,maxdfh,mindfh,maxcf,maxKh,zw
+    real(kind_phys):: rhs,gfluxm,gfluxp,dztop,maxdfh,mindfh,maxcf,maxKh
     real(kind_phys):: t,esat,qsl,onoff,kh,km,dzk,rhosfc
-    real(kind_phys):: ustdrag,ustdiff,qvflux
+    real(kind_phys):: ustdrag,ustdiff,qvflux,aero_min,aero_max
     real(kind_phys):: th_new,portion_qc,portion_qi,condensate,qsat
     integer :: k,kk
 
     !Activate nonlocal mixing from the mass-flux scheme for
     !number concentrations and aerosols (0.0 = no; 1.0 = yes)
-    real(kind_phys), parameter :: nonloc = 1.0
-    real(kind_phys), parameter :: nc_min = 100.0
-    real(kind_phys), parameter :: ni_min = 1e-6
-      
+    real(kind_phys), parameter :: nonloc  = 1.0
+    real(kind_phys), parameter :: nc_min  = 100.0
+    real(kind_phys), parameter :: ni_min  = 1e-6
+    !qnwfa & qnifa parameters for regulating bounds
+    real(kind_phys), parameter :: wfa_max = 800e6
+    real(kind_phys), parameter :: wfa_min = 5e6
+    real(kind_phys), parameter :: ifa_max = 270e6 !100e6
+    real(kind_phys), parameter :: ifa_min = 1e6   !0.5e6
+    real(kind_phys), parameter :: wfa_ht  = 2000.
+    real(kind_phys), parameter :: ifa_ht  = 10000.
+
     dztop=.5*(dz(kte)+dz(kte-1))
 
     ! REGULATE THE MOMENTUM MIXING FROM THE MASS-FLUX SCHEME (on or off)
@@ -4650,6 +4657,13 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNWFA .AND. &
        qnwfa2(k)=max(x(k),zero)
     ENDDO
 
+    !apply bounds
+    DO k=kts,kte
+       aero_min = wfa_min * exp(-zw(k)/wfa_ht)
+       aero_max = wfa_max * exp(-zw(k)/wfa_ht)
+       qnwfa2(k)= min(max(aero_min, qnwfa2(k)), aero_max)
+    ENDDO
+
 ELSE
     !If not mixing aerosols, set "updated" array equal to original array
     qnwfa2=qnwfa
@@ -4708,6 +4722,13 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNIFA .AND. &
        qnifa2(k)=max(x(k),zero)
     ENDDO
 
+    !apply bounds
+    DO k=kts,kte
+       aero_min = ifa_min * exp(-zw(k)/ifa_ht)
+       aero_max = ifa_max * exp(-zw(k)/ifa_ht)
+       qnifa2(k)= min(max(aero_min, qnifa2(k)), aero_max)
+    ENDDO
+    
 ELSE
     !If not mixing aerosols, set "updated" array equal to original array
     qnifa2=qnifa

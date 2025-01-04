@@ -3940,7 +3940,7 @@ CONTAINS
     real(kind_phys), parameter :: wfa_max = 800e6
     real(kind_phys), parameter :: wfa_min = 5e6
     real(kind_phys), parameter :: ifa_max = 270e6 !100e6
-    real(kind_phys), parameter :: ifa_min = 1e6   !0.5e6
+    real(kind_phys), parameter :: ifa_min = 1e4   !0.5e6
     real(kind_phys), parameter :: wfa_ht  = 2000.
     real(kind_phys), parameter :: ifa_ht  = 10000.
 

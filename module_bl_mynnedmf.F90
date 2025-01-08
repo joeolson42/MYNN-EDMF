@@ -3901,7 +3901,7 @@ CONTAINS
     real(kind_phys), dimension(kts:kte), intent(in) :: sub_thl,sub_sqv,   &
          &sub_u,sub_v,det_thl,det_sqv,det_sqc,det_u,det_v
     real(kind_phys), dimension(kts:kte), intent(in) :: u,v,th,tk,qv,qc,qi,&
-         &qs,qni,qnc,rho,p,exner,dfq,dz,zw,tsq,qsq,cov,tcd,qcd,              &
+         &qs,qni,qnc,rho,p,exner,dfq,dz,zw,tsq,qsq,cov,tcd,qcd,           &
          &cldfra_bl1,diss_heat
     real(kind_phys), dimension(kts:kte), intent(inout) :: thl,sqw,sqv,sqc,&
          &sqi,sqs,qnwfa,qnifa,qnbca,ozone,dfm,dfh
@@ -3937,12 +3937,12 @@ CONTAINS
     real(kind_phys), parameter :: nc_min  = 100.0
     real(kind_phys), parameter :: ni_min  = 1e-6
     !qnwfa & qnifa parameters for regulating bounds
-    real(kind_phys), parameter :: wfa_max = 800e6
-    real(kind_phys), parameter :: wfa_min = 5e6
-    real(kind_phys), parameter :: ifa_max = 270e6 !100e6
-    real(kind_phys), parameter :: ifa_min = 1e4   !0.5e6
-    real(kind_phys), parameter :: wfa_ht  = 2000.
-    real(kind_phys), parameter :: ifa_ht  = 10000.
+    real(kind_phys), parameter :: wfa_max = 800e6   !kg-1
+    real(kind_phys), parameter :: wfa_min = 5e6     !kg-1
+    real(kind_phys), parameter :: ifa_max = 270e6   !kg-1
+    real(kind_phys), parameter :: ifa_min = 0.0     !kg-1
+    real(kind_phys), parameter :: wfa_ht  = 2000.   !meters
+    real(kind_phys), parameter :: ifa_ht  = 10000.  !meters
 
     dztop=.5*(dz(kte)+dz(kte-1))
 
@@ -3960,15 +3960,15 @@ CONTAINS
     rhosfc     = psfc/(R_d*(tk(kts)+p608*qv(kts)))
     dtz(kts)   = delt/dz(kts)
     rhoz(kts)  = rho(kts)
-    rhoinv(kts)= 1./rho(kts)
+    rhoinv(kts)= one/rho(kts)
     khdz(kts)  = rhoz(kts)*dfh(kts)
     kmdz(kts)  = rhoz(kts)*dfm(kts)
     DO k=kts+1,kte
        dtz(k)   = delt/dz(k)
        rhoz(k)  = (rho(k)*dz(k-1) + rho(k-1)*dz(k))/(dz(k-1)+dz(k))
-       rhoz(k)  =  MAX(rhoz(k),1E-4)
-       rhoinv(k)= 1./MAX(rho(k),1E-4)
-       dzk      = 0.5  *( dz(k)+dz(k-1) )
+       rhoz(k)  =  MAX(rhoz(k),1E-4_kind_phys)
+       rhoinv(k)= one/MAX(rho(k),1E-4_kind_phys)
+       dzk      = half *( dz(k)+dz(k-1) )
        khdz(k)  = rhoz(k)*dfh(k)
        kmdz(k)  = rhoz(k)*dfm(k)
     ENDDO
@@ -3984,16 +3984,16 @@ CONTAINS
        delp(k) = rho(k)*grav*dz(k)
     ENDDO
     !delp(kte)  =delp(kte-1)
-    if ( delp(kts) < 0.5*delp(kts+1) )delp(kts)=0.5*delp(kts+1)
+    if ( delp(kts) < 0.5*delp(kts+1) )delp(kts)=half*delp(kts+1)
 
     !stability criteria for mf
     DO k=kts+1,kte-1
-       khdz(k) = max(khdz(k),  0.5*(s_aw1(k) +sd_aw1(k)))
-       khdz(k) = max(khdz(k), -0.5*(s_aw1(k) -s_aw1(k+1))  &
-                              -0.5*(sd_aw1(k)-sd_aw1(k+1)) )
-       kmdz(k) = max(kmdz(k),  0.5*(s_aw1(k) +sd_aw1(k)))
-       kmdz(k) = max(kmdz(k), -0.5*(s_aw1(k) -s_aw1(k+1))  &
-                              -0.5*(sd_aw1(k)-sd_aw1(k+1)) )
+       khdz(k) = max(khdz(k),  half*(s_aw1(k) +sd_aw1(k)))
+       khdz(k) = max(khdz(k), -half*(s_aw1(k) -s_aw1(k+1))  &
+                              -half*(sd_aw1(k)-sd_aw1(k+1)) )
+       kmdz(k) = max(kmdz(k),  half*(s_aw1(k) +sd_aw1(k)))
+       kmdz(k) = max(kmdz(k), -half*(s_aw1(k) -s_aw1(k+1))  &
+                              -half*(sd_aw1(k)-sd_aw1(k+1)) )
     ENDDO
 
     ustdrag = MIN(ust*ust,0.99)/wspd  ! limit at ~ 20 m/s
@@ -4008,29 +4008,29 @@ CONTAINS
 
 !rho-weighted (drag in b-vector):
     a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(kmdz(k+1)+rhosfc*ust**2/wspd)*rhoinv(k)       &
-           & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff              &
-           & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-    c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k) &
-           & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff              &
-           & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-    d(k)=u(k)  + dtz(k)*uoce*ust**2/wspd                          &
-           & - dtz(k)*rhoinv(k)*s_awu1(k+1)*onoff                 &
-           & + dtz(k)*rhoinv(k)*sd_awu1(k+1)*onoff                &
+    b(k)=1.+dtz(k)*(kmdz(k+1)+rhosfc*ust**2/wspd)*rhoinv(k)        &
+           & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff              &
+           & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
+    c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                             &
+           & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff              &
+           & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
+    d(k)=u(k)  + dtz(k)*uoce*ust**2/wspd                           &
+           & - dtz(k)*rhoinv(k)*s_awu1(k+1)*onoff                  &
+           & + dtz(k)*rhoinv(k)*sd_awu1(k+1)*onoff                 &
            & + sub_u(k)*delt + det_u(k)*delt
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)                           &
-           &  + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)*onoff               &
-           &  + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)*onoff
-       b(k)=1.+ dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k)              &
-           &  + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*onoff  &
-           &  + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))*onoff
-       c(k)=  - dtz(k)*kmdz(k+1)*rhoinv(k)                        &
-           &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff             &
-           &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-       d(k)=u(k) + dtz(k)*rhoinv(k)*(s_awu1(k)-s_awu1(k+1))*onoff &
-           &  - dtz(k)*rhoinv(k)*(sd_awu1(k)-sd_awu1(k+1))*onoff  &
+       a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)                            &
+           &  + half*dtz(k)*rhoinv(k)*s_aw1(k)*onoff               &
+           &  + half*dtz(k)*rhoinv(k)*sd_aw1(k)*onoff
+       b(k)=1.+ dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k)               &
+           &  + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*onoff  &
+           &  + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))*onoff
+       c(k)=  - dtz(k)*kmdz(k+1)*rhoinv(k)                         &
+           &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff             &
+           &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
+       d(k)=u(k) + dtz(k)*rhoinv(k)*(s_awu1(k)-s_awu1(k+1))*onoff  &
+           &  - dtz(k)*rhoinv(k)*(sd_awu1(k)-sd_awu1(k+1))*onoff   &
            &  + sub_u(k)*delt + det_u(k)*delt
     enddo
 
@@ -4069,29 +4069,29 @@ CONTAINS
 
 !rho-weighted (drag in b-vector):
     a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(kmdz(k+1) + rhosfc*ust**2/wspd)*rhoinv(k)    &
-        &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
-        &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-    c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                           &
-        &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
-        &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-    d(k)=v(k)  + dtz(k)*voce*ust**2/wspd                         &
-        &  - dtz(k)*rhoinv(k)*s_awv1(k+1)*onoff                  &
-        &  + dtz(k)*rhoinv(k)*sd_awv1(k+1)*onoff                 &
+    b(k)=1.+dtz(k)*(kmdz(k+1) + rhosfc*ust**2/wspd)*rhoinv(k)     &
+        &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
+        &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
+    c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                            &
+        &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
+        &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
+    d(k)=v(k)  + dtz(k)*voce*ust**2/wspd                          &
+        &  - dtz(k)*rhoinv(k)*s_awv1(k+1)*onoff                   &
+        &  + dtz(k)*rhoinv(k)*sd_awv1(k+1)*onoff                  &
         &  + sub_v(k)*delt + det_v(k)*delt
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)                          &
-         & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)*onoff                 &
-         & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)*onoff
-       b(k)=1.+dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k)              &
-         & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*onoff    &
-         & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))*onoff
-       c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                        &
-         & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
-         & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-       d(k)=v(k) + dtz(k)*rhoinv(k)*(s_awv1(k)-s_awv1(k+1))*onoff&
-         & - dtz(k)*rhoinv(k)*(sd_awv1(k)-sd_awv1(k+1))*onoff    &
+       a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)                           &
+         & + half*dtz(k)*rhoinv(k)*s_aw1(k)*onoff                 &
+         & + half*dtz(k)*rhoinv(k)*sd_aw1(k)*onoff
+       b(k)=1.+dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k)               &
+         & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*onoff    &
+         & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))*onoff
+       c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                         &
+         & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
+         & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
+       d(k)=v(k) + dtz(k)*rhoinv(k)*(s_awv1(k)-s_awv1(k+1))*onoff &
+         & - dtz(k)*rhoinv(k)*(sd_awv1(k)-sd_awv1(k+1))*onoff     &
          & + sub_v(k)*delt + det_v(k)*delt
     enddo
 
@@ -4129,31 +4129,31 @@ CONTAINS
 
 !rho-weighted: rhosfc*x*rhoinv(k)
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)            &
-       &   - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-       &   - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                      &
-       &   - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-       &   - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    d(k)=thl(k) + dtz(k)*rhosfc*flt*rhoinv(k) + tcd(k)*delt &
-       &   - dtz(k)*rhoinv(k)*s_awthl1(k+1)                 &
-       &   + dtz(k)*rhoinv(k)*sd_awthl1(k+1)                &
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)             &
+       &   - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+       &   - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
+       &   - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+       &   - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    d(k)=thl(k) + dtz(k)*rhosfc*flt*rhoinv(k) + tcd(k)*delt  &
+       &   - dtz(k)*rhoinv(k)*s_awthl1(k+1)                  &
+       &   + dtz(k)*rhoinv(k)*sd_awthl1(k+1)                 &
        & + diss_heat(k)*delt + sub_thl(k)*delt + det_thl(k)*delt
 
     do k=kts+1,kte-1
-       a(k)= -dtz(k)*khdz(k)*rhoinv(k)                      &
-       &    + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                 &
-       &    + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)         &
-       &  + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))      &
-       &  + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)= -dtz(k)*khdz(k+1)*rhoinv(k)                    &
-       &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
-       &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=thl(k) + tcd(k)*delt                            &
-       & + dtz(k)*rhoinv(k)*(s_awthl1(k)-s_awthl1(k+1))     &
-       & - dtz(k)*rhoinv(k)*(sd_awthl1(k)-sd_awthl1(k+1))   &
-       & +     diss_heat(k)*delt                            &
+       a(k)= -dtz(k)*khdz(k)*rhoinv(k)                       &
+       &    + half*dtz(k)*rhoinv(k)*s_aw1(k)                 &
+       &    + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
+       &  + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))      &
+       &  + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)= -dtz(k)*khdz(k+1)*rhoinv(k)                     &
+       &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
+       &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=thl(k) + tcd(k)*delt                             &
+       & + dtz(k)*rhoinv(k)*(s_awthl1(k)-s_awthl1(k+1))      &
+       & - dtz(k)*rhoinv(k)*(sd_awthl1(k)-sd_awthl1(k+1))    &
+       & +     diss_heat(k)*delt                             &
        & +     sub_thl(k)*delt + det_thl(k)*delt
     enddo
 
@@ -4197,28 +4197,28 @@ IF (bl_mynn_mixqt > 0) THEN
 
 !rho-weighted:
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)          &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
     d(k)=sqw(k)  + dtz(k)*rhosfc*flq*rhoinv(k) + qcd(k)*delt &
-       &  - dtz(k)*rhoinv(k)*s_awqt1(k+1)                &
+       &  - dtz(k)*rhoinv(k)*s_awqt1(k+1)                 &
        &  + dtz(k)*rhoinv(k)*sd_awqt1(k+1)
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                 &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))    &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=sqw(k) + qcd(k)*delt                         &
-       & + dtz(k)*rhoinv(k)*(s_awqt1(k)-s_awqt1(k+1))    &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                   &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                 &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)       &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))    &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                 &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=sqw(k) + qcd(k)*delt                          &
+       & + dtz(k)*rhoinv(k)*(s_awqt1(k)-s_awqt1(k+1))     &
        & - dtz(k)*rhoinv(k)*(sd_awqt1(k)-sd_awqt1(k+1))
     enddo
 
@@ -4261,30 +4261,30 @@ IF (bl_mynn_mixqt == 0) THEN
 
 !rho-weighted:
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)        &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                  &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
     d(k)=sqc(k)  + dtz(k)*rhosfc*flqc*rhoinv(k) + qcd(k)*delt &
-    &  - dtz(k)*rhoinv(k)*s_awqc1(k+1)                  &
-    &  + dtz(k)*rhoinv(k)*sd_awqc1(k+1)                 &
+    &  - dtz(k)*rhoinv(k)*s_awqc1(k+1)                   &
+    &  + dtz(k)*rhoinv(k)*sd_awqc1(k+1)                  &
     &  + det_sqc(k)*delt
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                 &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)     &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)               &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=sqc(k) + qcd(k)*delt                        &
-       & + dtz(k)*rhoinv(k)*(s_awqc1(k)-s_awqc1(k+1))   &
-       & - dtz(k)*rhoinv(k)*(sd_awqc1(k)-sd_awqc1(k+1)) &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=sqc(k) + qcd(k)*delt                         &
+       & + dtz(k)*rhoinv(k)*(s_awqc1(k)-s_awqc1(k+1))    &
+       & - dtz(k)*rhoinv(k)*(sd_awqc1(k)-sd_awqc1(k+1))  &
        & + det_sqc(k)*delt
     enddo
 
@@ -4324,30 +4324,30 @@ IF (bl_mynn_mixqt == 0) THEN
 
 !rho-weighted:
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)        &
-    & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
-    & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                  &
-    & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
-    & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
+    & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
+    & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
+    & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
+    & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
     d(k)=sqv(k)  + dtz(k)*rhosfc*qvflux*rhoinv(k) + qcd(k)*delt &
-    & - dtz(k)*rhoinv(k)*s_awqv1(k+1)                   &
-    & + dtz(k)*rhoinv(k)*sd_awqv1(k+1)                  &
+    & - dtz(k)*rhoinv(k)*s_awqv1(k+1)                    &
+    & + dtz(k)*rhoinv(k)*sd_awqv1(k+1)                   &
     & + sub_sqv(k)*delt + det_sqv(k)*delt
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                 &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)     &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)               &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=sqv(k) + qcd(k)*delt                        &
-       & + dtz(k)*rhoinv(k)*(s_awqv1(k)-s_awqv1(k+1))   &
-       & - dtz(k)*rhoinv(k)*(sd_awqv1(k)-sd_awqv1(k+1)) &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=sqv(k) + qcd(k)*delt                         &
+       & + dtz(k)*rhoinv(k)*(s_awqv1(k)-s_awqv1(k+1))    &
+       & - dtz(k)*rhoinv(k)*(sd_awqv1(k)-sd_awqv1(k+1))  &
        & + sub_sqv(k)*delt + det_sqv(k)*delt
     enddo
 
@@ -4389,27 +4389,27 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QI) THEN
     k=kts
 
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)      &
-!    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
-!    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    d(k)=sqi(k)                                       &
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)       &
+!    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                 &
+!    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    d(k)=sqi(k)                                        &
 !    &  - dtz(k)*rhoinv(k)*s_awqi1(k+1)                 &
     &  + dtz(k)*rhoinv(k)*sd_awqi1(k+1)
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)               &
-!       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)               &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)   &
-!       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)             &
-!       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)             &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=sqi(k)                                    &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                &
+!       & + half*dtz(k)*rhoinv(k)*s_aw1(k)               &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)    &
+!       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)              &
+!       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)             &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=sqi(k)                                     &
 !       & + dtz(k)*rhoinv(k)*(s_awqi1(k)-s_awqi1(k+1))   &
        & - dtz(k)*rhoinv(k)*(sd_awqi1(k)-sd_awqi1(k+1))
     enddo
@@ -4496,28 +4496,28 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNI .AND. &
     k=kts
 
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)        &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                  &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    d(k)=qni2(k)                                        &
-    &  - dtz(k)*rhoinv(k)*s_awqni1(k+1)                 &
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    d(k)=qni2(k)                                         &
+    &  - dtz(k)*rhoinv(k)*s_awqni1(k+1)                  &
     &  + dtz(k)*rhoinv(k)*sd_awqni1(k+1)
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                 &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)     &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)               &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=qni2(k)                                     &
-       & + dtz(k)*rhoinv(k)*(s_awqni1(k)-s_awqni1(k+1)) &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=qni2(k)                                      &
+       & + dtz(k)*rhoinv(k)*(s_awqni1(k)-s_awqni1(k+1))  &
        & - dtz(k)*rhoinv(k)*(sd_awqni1(k)-sd_awqni1(k+1))
     enddo
 
@@ -4558,28 +4558,28 @@ ENDIF
     k=kts
 
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)        &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                  &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    d(k)=qnc2(k)                                        &
-    &  - dtz(k)*rhoinv(k)*s_awqnc1(k+1)                 &
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    d(k)=qnc2(k)                                         &
+    &  - dtz(k)*rhoinv(k)*s_awqnc1(k+1)                  &
     &  + dtz(k)*rhoinv(k)*sd_awqnc1(k+1)
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                 &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)     &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)               &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=qnc2(k)                                     &
-       & + dtz(k)*rhoinv(k)*(s_awqnc1(k)-s_awqnc1(k+1)) &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=qnc2(k)                                      &
+       & + dtz(k)*rhoinv(k)*(s_awqnc1(k)-s_awqnc1(k+1))  &
        & - dtz(k)*rhoinv(k)*(sd_awqnc1(k)-sd_awqnc1(k+1))
     enddo
 
@@ -4617,28 +4617,28 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNWFA .AND. &
     k=kts
 
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)            &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                      &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    d(k)=qnwfa2(k)                                          &
-    &  - dtz(k)*rhoinv(k)*s_awqnwfa1(k+1)                   &
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)             &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    d(k)=qnwfa2(k)                                           &
+    &  - dtz(k)*rhoinv(k)*s_awqnwfa1(k+1)                    &
     &  + dtz(k)*rhoinv(k)*sd_awqnwfa1(k+1)
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                     &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                    &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)         &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))       &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                  &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=qnwfa2(k)                                       &
-       & + dtz(k)*rhoinv(k)*(s_awqnwfa1(k)-s_awqnwfa1(k+1)) &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                      &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                    &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))       &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                  &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=qnwfa2(k)                                        &
+       & + dtz(k)*rhoinv(k)*(s_awqnwfa1(k)-s_awqnwfa1(k+1))  &
        & - dtz(k)*rhoinv(k)*(sd_awqnwfa1(k)-sd_awqnwfa1(k+1))
     enddo
 
@@ -4682,28 +4682,28 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNIFA .AND. &
     k=kts
 
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)            &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                      &
-    &  - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
-    &  - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-    d(k)=qnifa2(k)                                          &
-    &  - dtz(k)*rhoinv(k)*s_awqnifa1(k+1)                   &
+    b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)             &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
+    &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
+    &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+    d(k)=qnifa2(k)                                           &
+    &  - dtz(k)*rhoinv(k)*s_awqnifa1(k+1)                    &
     &  + dtz(k)*rhoinv(k)*sd_awqnifa1(k+1)
 
     do k=kts+1,kte-1
-       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                     &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)                    &
-       & + 0.5*dtz(k)*rhoinv(k)*sd_aw1(k)
-       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)         &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))       &
-       & + 0.5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)                  &
-       & - 0.5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
-       d(k)=qnifa2(k)                                       &
-       & + dtz(k)*rhoinv(k)*(s_awqnifa1(k)-s_awqnifa1(k+1)) &
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                      &
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)                    &
+       & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))       &
+       & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                  &
+       & - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       d(k)=qnifa2(k)                                        &
+       & + dtz(k)*rhoinv(k)*(s_awqnifa1(k)-s_awqnifa1(k+1))  &
        & - dtz(k)*rhoinv(k)*(sd_awqnifa1(k)-sd_awqnifa1(k+1))
     enddo
 
@@ -4744,18 +4744,18 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNBCA .AND. &
 
     a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
     b(k)=1.+dtz(k)*(khdz(k) + khdz(k+1))*rhoinv(k)           &
-    & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
+    & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
     c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
-    & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
+    & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
     d(k)=qnbca(k)  - dtz(k)*rhoinv(k)*s_awqnbca1(k+1)*nonloc
 
     do k=kts+1,kte-1
        a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                      &
-       & + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)*nonloc
+       & + half*dtz(k)*rhoinv(k)*s_aw1(k)*nonloc
        b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
-       & + 0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*nonloc
+       & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*nonloc
        c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
-       & - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
+       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
        d(k)=qnbca(k) + dtz(k)*rhoinv(k)*(s_awqnbca1(k)-s_awqnbca1(k+1))*nonloc
     enddo
 
@@ -5204,14 +5204,14 @@ ENDIF
     !Prepare "constants" for diffusion equation.
     !khdz = rho*Kh/dz = rho*dfh
     rhoz(kts)  =rho(kts)
-    rhoinv(kts)=1./rho(kts)
+    rhoinv(kts)=one/rho(kts)
     khdz(kts)  =rhoz(kts)*dfh(kts)
 
     DO k=kts+1,kte
        rhoz(k)  =(rho(k)*dz(k-1) + rho(k-1)*dz(k))/(dz(k-1)+dz(k))
-       rhoz(k)  =  MAX(rhoz(k),1E-4)
-       rhoinv(k)=1./MAX(rho(k),1E-4)
-       dzk      = 0.5  *( dz(k)+dz(k-1) )
+       rhoz(k)  =  MAX(rhoz(k),1E-4_kind_phys)
+       rhoinv(k)=one/MAX(rho(k),1E-4_kind_phys)
+       dzk      = half  *( dz(k)+dz(k-1) )
        khdz(k)  = rhoz(k)*dfh(k)
     ENDDO
     rhoz(kte+1)=rhoz(kte)
@@ -5219,15 +5219,15 @@ ENDIF
 
     !stability criteria for mf
     DO k=kts+1,kte-1
-       khdz(k) = MAX(khdz(k),  0.5*s_aw1(k))
-       khdz(k) = MAX(khdz(k), -0.5*(s_aw1(k)-s_aw1(k+1)))
+       khdz(k) = MAX(khdz(k),  half*s_aw1(k))
+       khdz(k) = MAX(khdz(k), -half*(s_aw1(k)-s_aw1(k+1)))
     ENDDO
 
     !Enhanced mixing over fires
     IF ( rrfs_sd .and. enh_mix ) THEN
        DO k=kts+1,kte-1
           khdz_old  = khdz(k)
-          khdz_back = pblh * 0.15 / dz(k)
+          khdz_back = pblh * 0.15_kind_phys / dz(k)
           !Modify based on anthropogenic emissions of NO and FRP
           IF ( pblh < pblh_threshold ) THEN
              IF ( emis_ant_no > NO_threshold ) THEN
@@ -5251,17 +5251,17 @@ ENDIF
        k=kts
 
        a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-       b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k) - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)
-       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)           - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)
+       b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k) - half*dtz(k)*rhoinv(k)*s_aw1(k+1)
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)           - half*dtz(k)*rhoinv(k)*s_aw1(k+1)
        d(k)=chem1(k,ic) & !dtz(k)*flt  !neglecting surface sources 
             & - dtz(k)*vd1(ic)*chem1(k,ic) &
             & - dtz(k)*rhoinv(k)*s_awchem1(k+1,ic)
 
        DO k=kts+1,kte-1
-          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)     + 0.5*dtz(k)*rhoinv(k)*s_aw1(k)
+          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)     + half*dtz(k)*rhoinv(k)*s_aw1(k)
           b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k) + &
-             &    0.5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))
-          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k) - 0.5*dtz(k)*rhoinv(k)*s_aw1(k+1)
+             &    half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))
+          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k) - half*dtz(k)*rhoinv(k)*s_aw1(k+1)
           d(k)=chem1(k,ic) + dtz(k)*rhoinv(k)*(s_awchem1(k,ic)-s_awchem1(k+1,ic))
        ENDDO
 
@@ -5299,7 +5299,7 @@ ENDIF
     kh1(kts)=0.
 
     do k=kts+1,kte
-       dzk   = 0.5 *( dz(k)+dz(k-1) )
+       dzk   = half *( dz(k)+dz(k-1) )
        km1(k)=dfm(k)*dzk
        kh1(k)=dfh(k)*dzk
     enddo

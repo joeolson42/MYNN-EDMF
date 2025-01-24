@@ -11,5 +11,5 @@
 
 # All copies in the top dir
 Makefile
-module_mynnedmf_common.F90
-module_mynnedmf_driver.F90
+module_bl_mynnedmf_common.F90
+module_bl_mynnedmf_driver.F90

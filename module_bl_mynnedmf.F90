@@ -1664,7 +1664,8 @@ CONTAINS
     integer :: i,j,k
     real(kind_phys):: afk,abk,zwk,zwk1,dzk,qdz,vflx,bv,tau_cloud,      &
            & wstar,elb,els,elf,el_stab,el_mf,el_stab_mf,elb_mf,elt_max,&
-           & PBLH_PLUS_ENT,Uonset,Ugrid,wt_u1,wt_u2,el_les,qkw_mf
+           & PBLH_PLUS_ENT,Uonset,Ugrid,wt_u1,wt_u2,el_les,qkw_mf,     &
+           & z_m,el_unstab,els1
     real(kind_phys), parameter :: ctau = 1000. !constant for tau_cloud
 
 !    tv0 = 0.61*tref
@@ -1755,13 +1756,13 @@ CONTAINS
         !wt_u* are for hurricane tuning, meant to reduce diffusion in hurricanes
         ugrid = sqrt(u1(kts)**2 + v1(kts)**2)
         uonset= 20.
-        wt_u1 = one - 0.2*min(1.0, max(zero, ugrid - uonset)/50.0) !reduce to 0.8
-        wt_u2 = one - 0.4*min(1.0, max(zero, ugrid - uonset)/50.0) !reduce to 0.6
+        wt_u1 = one - 0.2*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.8
+        wt_u2 = one - 0.4*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.6
         cns   = 3.5
         alp1  = 0.23
-        alp2  = 0.3
+        alp2  = 0.25 !was 0.30
         alp3  = 2.5 * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
-        alp4  = 5.0
+        alp4  = 12.0 !test3, otherwise = 5.0
         alp5  = 0.3
         alp6  = 50.
 
@@ -1807,10 +1808,10 @@ CONTAINS
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt + ( vq(kts)+tv0 )*flq
         vflx= fltv
-        vsc = ( gtr*elt*MAX( vflx, 0.0 ) )**onethird
+        vsc = ( gtr*elt*MAX( vflx, zero ) )**onethird
 
         !   **  Strictly, el(i,j,1) is not zero.  **
-        el(kts) = 0.0
+        el(kts) = zero
         zwk1    = zw(kts+1)         !full-sigma levels
 
         ! COMPUTE BouLac mixing length
@@ -1838,11 +1839,14 @@ CONTAINS
               elf    = elb
            ENDIF
 
+           z_m = MAX(karman, zwk - 4.)
            !   **  Length scale in the surface layer  **
            IF ( rmol .GT. 0.0 ) THEN
               els  = karman*zwk/(one+cns*MIN( zwk*rmol, zmax ))
+              els1 = karman*z_m/(one+cns*MIN( zwk*rmol, zmax ))
            ELSE
               els  = karman*zwk*( one - alp4* zwk*rmol)**0.2
+              els1 = karman*z_m*( one - alp4* zwk*rmol)**0.2
            END IF
 
            !   ** NOW BLEND THE MIXING LENGTH SCALES:
@@ -1851,10 +1855,12 @@ CONTAINS
            !add blending to use BouLac mixing length in free atmos;
            !defined relative to the PBLH (pblh) + transition layer (h1)
            !el(k) = MIN(elb/( elb/elt+elb/els+one ),elf)
-           !try squared-blending - but take out elb (makes it underdiffusive)
-           !el(k) = SQRT( els**2/(1. + (els**2/elt**2) +(els**2/elb**2)))
-           el(k) = sqrt( els**2/(1. + (els**2/elt**2)))
-           el(k) = min(el(k), elb)
+           !squared blending - but take out elb (makes it underdiffusive)
+           !el_unstab = SQRT( els**2/(one + (els**2/elt**2) +(els**2/elb**2)))
+           !el_unstab = sqrt( els**2/(one + (els**2/elt**2)))
+           !non-squared blending:
+           el_unstab = els/(one + (els1/elt))
+           el(k) = min(el_unstab, elb)
            el(k) = min(el(k), elf)  !elf can be smaller than elb in upper pbl
            if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
               el(k)=el(k)*wt_u1
@@ -2458,7 +2464,7 @@ CONTAINS
     integer,         intent(in)                   :: spp_pbl
     real(kind_phys), dimension(kts:kte)           :: pattern_spp_pbl1
     real(kind_phys):: Prnum, shb, Prlim
-    real(kind_phys), parameter :: Prlimit = 5.0
+    real(kind_phys), parameter :: Prlimit = 6.0
 
 !
 !    tv0 = 0.61*tref
@@ -2529,10 +2535,10 @@ CONTAINS
        !TZC - Kondo Correction
        if (ri >= one) then
           ! Kh/Km = 1/(7*Ri)
-          Prlim = 7._kind_phys*ri
+          Prlim = min(7._kind_phys*ri, Prlimit)
        elseif (ri >= 0.01 .and. ri <= one) then
           ! Kh/Km(i,k) = 1/(6.873*Ri + 1/(6.873*Ri))
-          Prlim = (6.873_kind_phys*ri + one/(6.873_kind_phys*ri))
+          Prlim = min(6.873_kind_phys*ri + one/(6.873_kind_phys*ri), Prlimit)
        else
           ! no Pr limit required?
           Prlim = Prlimit
@@ -2667,8 +2673,7 @@ CONTAINS
        !IF ( sm(k) > sm25max ) sm(k) = sm25max
        !IF ( sm(k) < sm25min ) sm(k) = sm25min
 
-       !shb   = max(sh(k), 0.002)
-       shb   = max(sh(k), 0.02_kind_phys)
+       shb   = max(sh(k), 0.004_kind_phys)
        sm(k) = min(sm(k), Prlim*shb)
 
 !   **  Level 3 : start  **
@@ -2828,8 +2833,8 @@ CONTAINS
        sm(k) = max(sm(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
        sh(k) = max(sh(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
        ! impose minimum for clouds
-       sm(k) = max(sm(k), 0.04_kind_phys*min(cldavg,one) )
-       sh(k) = max(sh(k), 0.04_kind_phys*min(cldavg,one) )
+       sm(k) = max(sm(k), 0.04_kind_phys*min(cldavg, half) )
+       sh(k) = max(sh(k), 0.04_kind_phys*min(cldavg, half) )
 !
        elq = el(k)*qkw(k)
        elh = elq*qdiv

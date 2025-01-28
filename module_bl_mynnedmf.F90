@@ -495,6 +495,7 @@ CONTAINS
        qc_bl1_old,qi_bl1_old,cldfra_bl1_old,dummy1,dummy2,          &
        diss_heat1,                                                  &
        thl1,thv1,thlv1,qv1,qc1,qi1,qs1,sqw1,                        &
+       thl_tot1,qc_tot1,qi_tot1,                                    &
        dfm1, dfh1, dfq1, tcd1, qcd1,                                &
        pdk1, pdt1, pdq1, pdc1,                                      &
        vt1, vq1, sgm1, kzero1
@@ -694,7 +695,7 @@ CONTAINS
 
 
 !>  - Call get_pblh() to calculate hybrid (\f$\theta_{v}-TKE\f$) PBL height.
-       CALL GET_PBLH(KTS,KTE,PBLH,thv1,qke1,zw1,dz1,xland,kpbl)
+       CALL GET_PBLH(KTS,KTE,PBLH,thv1,qke1,ust,zw1,dz1,xland,kpbl)
              
 !>  - Call scale_aware() to calculate similarity functions for scale-adaptive control
 !! (\f$P_{\sigma-PBL}\f$ and \f$P_{\sigma-shcu}\f$).
@@ -842,7 +843,7 @@ CONTAINS
 
 !>  - Call get_pblh() to calculate the hybrid \f$\theta_{v}-TKE\f$
 !! PBL height diagnostic.
-    CALL GET_PBLH(KTS,KTE,PBLH,thv1,qke1,zw1,dz1,xland,KPBL)
+    CALL GET_PBLH(KTS,KTE,PBLH,thv1,qke1,ust,zw1,dz1,xland,KPBL)
 
 !>  - Call scale_aware() to calculate the similarity functions,
 !! \f$P_{\sigma-PBL}\f$ and \f$P_{\sigma-shcu}\f$, to control 
@@ -1003,9 +1004,13 @@ CONTAINS
 
     !thlv with updated subgrid clouds
     do k=kts,kte
-       thlv1(k)=(th1(k) - xlvcp/ex1(k)*max(qc_bl1(k),sqc1(k))          &
-                &       - xlscp/ex1(k)*max(qi_bl1(k),sqi1(k)+sqs1(k))) &
-                &       * (one+p608*sqv1(k))
+       qc_tot1(k) =max(qc_bl1(k),sqc1(k))
+       qi_tot1(k) =max(qi_bl1(k),sqi1(k)+sqs1(k))
+       thlv1(k)   =(th1(k) - xlvcp/ex1(k)*qc_tot1(k)  &
+                &          - xlscp/ex1(k)*qi_tot1(k)) &
+                &          * (one+p608*sqv1(k))
+       thl_tot1(k)=th1(k)  - xlvcp/ex1(k)*qc_tot1(k)  &
+                &          - xlscp/ex1(k)*qi_tot1(k)
     enddo
 
     call mym_turbulence(                                 &
@@ -1061,6 +1066,7 @@ CONTAINS
             &qc1, qi1, kzero1, qnc1, qni1,               & !kzero replaces qs1 - not mixing snow
             &ps, p1, ex1, thl1,                          &
             &sqv1, sqc1, sqi1, kzero1, sqw1,             & !kzero replaces sqs - not mixing snow
+            &thl_tot1, qc_tot1, qi_tot1,                 & !exp4
             &qnwfa1, qnifa1, qnbca1, ozone1,             &
             &ust,flt,flq,flqv,flqc,                      &
             &wspd,uoce,voce,                             &
@@ -1762,7 +1768,7 @@ CONTAINS
         alp1  = 0.23
         alp2  = 0.25 !was 0.30
         alp3  = 2.5 * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
-        alp4  = 12.0 !test3, otherwise = 5.0
+        alp4  = 5.0 !use 12.0 for linear blending
         alp5  = 0.3
         alp6  = 50.
 
@@ -1857,9 +1863,9 @@ CONTAINS
            !el(k) = MIN(elb/( elb/elt+elb/els+one ),elf)
            !squared blending - but take out elb (makes it underdiffusive)
            !el_unstab = SQRT( els**2/(one + (els**2/elt**2) +(els**2/elb**2)))
-           !el_unstab = sqrt( els**2/(one + (els**2/elt**2)))
+           el_unstab = sqrt( els**2/(one + (els**2/elt**2)))
            !non-squared blending:
-           el_unstab = els/(one + (els1/elt))
+           !el_unstab = els/(one + (els1/elt))
            el(k) = min(el_unstab, elb)
            el(k) = min(el(k), elf)  !elf can be smaller than elb in upper pbl
            if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
@@ -1879,7 +1885,7 @@ CONTAINS
 
         Uonset = 3.5 + dz(kts)*0.1
         Ugrid  = sqrt(u1(kts)**2 + v1(kts)**2)
-        cns  = 3.5 !JOE-test  * (one - MIN(MAX(Ugrid - Uonset, 0.0)/10.0, 1.0))
+        cns  = 3.5 !  * (one - MIN(MAX(Ugrid - Uonset, 0.0)/10.0, 1.0))
         alp1 = 0.22
         alp2 = 0.30
         alp3 = 2.5
@@ -3842,6 +3848,7 @@ CONTAINS
        &u,v,th,tk,qv,qc,qi,qs,qnc,qni,        &
        &psfc,p,exner,                         &
        &thl,sqv,sqc,sqi,sqs,sqw,              &
+       &thl_tot1,qc_tot1,qi_tot1,             &
        &qnwfa,qnifa,qnbca,ozone,              &
        &ust,flt,flq,flqv,flqc,wspd,           &
        &uoce,voce,                            &
@@ -3907,7 +3914,7 @@ CONTAINS
          &sub_u,sub_v,det_thl,det_sqv,det_sqc,det_u,det_v
     real(kind_phys), dimension(kts:kte), intent(in) :: u,v,th,tk,qv,qc,qi,&
          &qs,qni,qnc,rho,p,exner,dfq,dz,zw,tsq,qsq,cov,tcd,qcd,           &
-         &cldfra_bl1,diss_heat
+         &cldfra_bl1,diss_heat,thl_tot1,qc_tot1,qi_tot1
     real(kind_phys), dimension(kts:kte), intent(inout) :: thl,sqw,sqv,sqc,&
          &sqi,sqs,qnwfa,qnifa,qnbca,ozone,dfm,dfh
     real(kind_phys), dimension(kts:kte), intent(inout) :: du,dv,dth,dqv,  &
@@ -4141,25 +4148,27 @@ CONTAINS
        &   - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
        &   - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
     d(k)=thl(k) + dtz(k)*rhosfc*flt*rhoinv(k) + tcd(k)*delt  &
+!    d(k)=thl_tot1(k) + dtz(k)*rhosfc*flt*rhoinv(k) + tcd(k)*delt  &
        &   - dtz(k)*rhoinv(k)*s_awthl1(k+1)                  &
        &   + dtz(k)*rhoinv(k)*sd_awthl1(k+1)                 &
-       & + diss_heat(k)*delt + sub_thl(k)*delt + det_thl(k)*delt
+       &   + diss_heat(k)*delt + sub_thl(k)*delt + det_thl(k)*delt
 
     do k=kts+1,kte-1
        a(k)= -dtz(k)*khdz(k)*rhoinv(k)                       &
-       &    + half*dtz(k)*rhoinv(k)*s_aw1(k)                 &
-       &    + half*dtz(k)*rhoinv(k)*sd_aw1(k)
+       &   + half*dtz(k)*rhoinv(k)*s_aw1(k)                  &
+       &   + half*dtz(k)*rhoinv(k)*sd_aw1(k)
        b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
-       &  + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))      &
-       &  + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
+       &   + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))     &
+       &   + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
        c(k)= -dtz(k)*khdz(k+1)*rhoinv(k)                     &
-       &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                 &
-       &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
+       &   - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
+       &   - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
        d(k)=thl(k) + tcd(k)*delt                             &
-       & + dtz(k)*rhoinv(k)*(s_awthl1(k)-s_awthl1(k+1))      &
-       & - dtz(k)*rhoinv(k)*(sd_awthl1(k)-sd_awthl1(k+1))    &
-       & +     diss_heat(k)*delt                             &
-       & +     sub_thl(k)*delt + det_thl(k)*delt
+!       d(k)=thl_tot1(k) + tcd(k)*delt                             &
+       &   + dtz(k)*rhoinv(k)*(s_awthl1(k)-s_awthl1(k+1))    &
+       &   - dtz(k)*rhoinv(k)*(sd_awthl1(k)-sd_awthl1(k+1))  &
+       &   +     diss_heat(k)*delt                           &
+       &   +     sub_thl(k)*delt + det_thl(k)*delt
     enddo
 
 !! no flux at the top
@@ -4967,6 +4976,9 @@ ENDIF
          Dth(k)=(thl(k) + xlvcp/exner(k)*sqc2(k)          &
            &            + xlscp/exner(k)*(sqi2(k))        & !+sqs2(k)) &
            &            - th(k))/delt
+         !Dth(k)=(thl(k) + xlvcp/exner(k)*qc_tot1(k)       &
+         !  &            + xlscp/exner(k)*qi_tot1(k)       &
+         !  &            - th(k))/delt
          !Use form from Tripoli and Cotton (1981) with their
          !suggested min temperature to improve accuracy:
          !Dth(k)=(thl(k)*(1.+ xlvcp/MAX(tk(k),TKmin)*sqc(k)  &
@@ -5428,162 +5440,169 @@ ENDIF
 !>\ingroup gsd_mynn_edmf
 !! This subroutine calculates hybrid diagnotic boundary-layer height (PBLH).
 !!
-!! NOTES ON THE PBLH FORMULATION: The 1.5-theta-increase method defines
-!!PBL heights as the level at.
-!!which the potential temperature first exceeds the minimum potential.
-!!temperature within the boundary layer by 1.5 K. When applied to.
-!!observed temperatures, this method has been shown to produce PBL-
-!!height estimates that are unbiased relative to profiler-based.
-!!estimates (Nielsen-Gammon et al. 2008 \cite Nielsen_Gammon_2008). 
-!! However, their study did not
-!!include LLJs. Banta and Pichugina (2008) \cite Pichugina_2008  show that a TKE-based.
-!!threshold is a good estimate of the PBL height in LLJs. Therefore,
-!!a hybrid definition is implemented that uses both methods, weighting
-!!the TKE-method more during stable conditions (PBLH < 400 m).
-!!A variable tke threshold (TKEeps) is used since no hard-wired
-!!value could be found to work best in all conditions.
+!! NOTES ON THE PBLH FORMULATION:
+!!Two different diagnostics are calculated, each of them specialized for a
+!!distinct regime (stbale and unstable). The two diagnostics are then blended
+!!according to low-level stability, where the magnitude of the of the unstable
+!!pbl height is used as a proxy for the low-level stability. The unstable pblh uses
+!!the delta-theta-increase method, which defines the pbl height as the level at
+!!which the potential temperature first exceeds the minimum potential
+!!!temperature within the boundary layer by some specified delta (about 1.5 K).
+!!When applied to observed temperatures, this method has been shown to produce PBL-
+!!height estimates that are unbiased relative to profiler-based
+!!estimates (Nielsen-Gammon et al. 2008\cite Nielsen_Gammon_2008),
+!!but it can be biased in stable conditions. Two options 
+!!are now available for the stable pblh diagnostic, selectable by the
+!!stable_method internal parameter. Option 0 uses a TKE-based PBL height,
+!!which has been shown by Banta and Pichugina (2008) \cite Pichugina_2008 to be a good estimate of
+!!the PBL height in stable LLJ conditions. Option 1 selects a friction-velocity method,
+!!which is a very simple one-line diagnost that has been shown to be very reliable
+!!(cite). Therefore, a hybrid definition is implemented that uses both methods, weighting
+!!each higher in their respective regime they are tuned to best handle. 
 !>\section gen_get_pblh  GSD get_pblh General Algorithm
 !> @{
-  SUBROUTINE GET_PBLH(KTS,KTE,pblh,thv1,qke1,zw1,dz1,landsea,kpbl)
+SUBROUTINE GET_PBLH(KTS,KTE,pblh,thv1,qke1,ust,zw1,dz1,landsea,kpbl)
 
-    !---------------------------------------------------------------
-    !             NOTES ON THE PBLH FORMULATION
-    !
-    !The 1.5-theta-increase method defines PBL heights as the level at 
-    !which the potential temperature first exceeds the minimum potential 
-    !temperature within the boundary layer by 1.5 K. When applied to 
-    !observed temperatures, this method has been shown to produce PBL-
-    !height estimates that are unbiased relative to profiler-based 
-    !estimates (Nielsen-Gammon et al. 2008). However, their study did not
-    !include LLJs. Banta and Pichugina (2008) show that a TKE-based 
-    !threshold is a good estimate of the PBL height in LLJs. Therefore,
-    !a hybrid definition is implemented that uses both methods, weighting
-    !the TKE-method more during stable conditions (PBLH < 400 m).
-    !A variable tke threshold (TKEeps) is used since no hard-wired
-    !value could be found to work best in all conditions.
-    !---------------------------------------------------------------
+!---------------------------------------------------------------
+!             NOTES ON THE PBLH FORMULATION
+!This subroutine calculates hybrid diagnotic boundary-layer height (PBLH).
+!Two different diagnostics are calculated, each of them specialized for a
+!distinct regime (stbale and unstable). The two diagnostics are then blended
+!according to low-level stability, where the magnitude of the of the "unstable"
+!pbl height is used as a proxy for the low-level stability. The unstable pblh uses
+!the delta-theta-increase method, which defines the pbl height as the level at 
+!which the potential temperature first exceeds the minimum potential 
+!temperature within the boundary layer by some specified delta (about 1.5 K).
+!When applied to observed temperatures, this method has been shown to produce PBL-
+!height estimates that are unbiased relative to profiler-based 
+!estimates (Nielsen-Gammon et al. 2008), but it can be biased in stable conditions.
+!Two options are now available for the stable pblh diagnostic, selectable by the
+!"stable_method" internal parameter. Option 0 uses a TKE-based PBL height,
+!which has been shown by Banta and Pichugina (2008) to be a good estimate of
+!the PBL height in stable LLJ conditions. Option 1 selects a friction-velocity method,
+!which is a very simple one-line diagnost that has been shown to be very reliable
+!(cite). Therefore, a hybrid definition is implemented that uses both methods, weighting
+!each higher in their respective regime they are tuned to best handle.
+!---------------------------------------------------------------
 
-    integer,intent(in) :: KTS,KTE
+integer,intent(in) :: KTS,KTE
 
 #ifdef HARDCODE_VERTICAL
 # define kts 1
 # define kte HARDCODE_VERTICAL
 #endif
 
-    real(kind_phys), intent(out) :: pblh
-    real(kind_phys), intent(in) :: landsea
-    real(kind_phys), dimension(kts:kte), intent(in) :: thv1, qke1, dz1
-    real(kind_phys), dimension(kts:kte+1), intent(in) :: zw1
-    !LOCAL VARS
-    real(kind_phys)::  PBLH_TKE,qtke,qtkem1,wt,maxqke,TKEeps,minthv
-    real(kind_phys):: delt_thv   !delta theta-v; dependent on land/sea point
-    real(kind_phys), parameter :: sbl_lim  = 200. !upper limit of stable BL height (m).
-    real(kind_phys), parameter :: sbl_damp = 400. !transition length for blending (m).
-    integer :: I,J,K,kthv,ktke,kpbl
+real(kind_phys), intent(out) :: pblh
+real(kind_phys), intent(in) :: landsea,ust
+real(kind_phys), dimension(kts:kte), intent(in) :: thv1, qke1, dz1
+real(kind_phys), dimension(kts:kte+1), intent(in) :: zw1
+!local variables
+real(kind_phys):: pblh_stable,qtke,qtkem1,wt,maxqke,TKEeps,minthv
+real(kind_phys):: delt_thv   !delta theta-v; dependent on land/sea point
+real(kind_phys), parameter :: sbl_lim  = 250. !below this height (m), the stable PBLH method will dominate the blending.
+real(kind_phys), parameter :: sbl_damp = 300. !transition length for blending (m).
+integer :: i,j,k,kthv,ktke,kpbl
+integer, parameter :: stable_method=1 !0: TKE-based PBLH, 1: ust*700
 
-    !Initialize kpbl
-    kpbl = 2
+!Initialize kpbl
+kpbl = 2
 
-    !> - FIND MIN THETAV IN THE LOWEST 200 M AGL
-    k = kts+1
-    kthv = 1
-    minthv = 9.E9
-    DO WHILE (zw1(k) .LE. 200.)
-    !DO k=kts+1,kte-1
-       IF (minthv > thv1(k)) then
-           minthv = thv1(k)
-           kthv = k
-       ENDIF
-       k = k+1
-       !IF (zw1(k) .GT. sbl_lim) exit
-    ENDDO
+!> - FIND MIN THETAV IN THE LOWEST 200 M AGL
+k = kts+1
+kthv = 1
+minthv = 9.E9_kind_phys
+do while (zw1(k) .le. 200.)
+   if (minthv > thv1(k)) then
+      minthv = thv1(k)
+      kthv = k
+   endif
+   k = k+1
+enddo
 
-    !> - FIND THETAV-BASED PBLH (BEST FOR DAYTIME).
-    pblh=0.
-    k = kthv+1
-    IF((landsea-1.5).GE.zero)THEN
-        ! WATER
-        delt_thv = one
-    ELSE
-        ! LAND
-        delt_thv = 1.25
-    ENDIF
+!> - FIND THETAV-BASED PBLH (BEST FOR DAYTIME).
+pblh=0.
+k = kthv+1
+if ((landsea-1.5) .ge. zero) then
+   ! WATER
+   delt_thv = 0.75_kind_phys
+else
+   ! LAND
+   delt_thv = 1.25_kind_phys
+endif
 
-    pblh=0.
-    k = kthv+1
-!    DO WHILE (pblh .EQ. 0.) 
-    DO k=kts+1,kte-1
-       IF (thv1(k) .GE. (minthv + delt_thv))THEN
-          pblh = zw1(k) - dz1(k-1)* &
-             & MIN((thv1(k)-(minthv + delt_thv))/ &
-             & MAX(thv1(k)-thv1(k-1),1E-6),one)
-       ENDIF
-       !k = k+1
-       IF (k .EQ. kte-1) pblh = zw1(kts+1) !EXIT SAFEGUARD
-       IF (pblh .NE. zero) exit
-    ENDDO
-    !print*,"IN GET_PBLH:",thsfc,pblh
+pblh=zero
+k = kthv+1
+do k=kts+1,kte-1
+   if (thv1(k) .ge. (minthv + delt_thv)) then
+      pblh = zw1(k) - dz1(k-1)* &
+      & min((thv1(k)-(minthv + delt_thv))/ &
+      & max(thv1(k)-thv1(k-1),1E-6_kind_phys),one)
+   endif
+   if (k .EQ. kte-1) pblh = zw1(kts+1) !EXIT SAFEGUARD
+   if (pblh .NE. zero) exit
+enddo
+!print*,"IN GET_PBLH:",thsfc,pblh
 
-    !> - FOR STABLE BOUNDARY LAYERS, USE TKE METHOD TO COMPLEMENT THE
-    !! THETAV-BASED DEFINITION (WHEN THE THETA-V BASED PBLH IS BELOW ~0.5 KM).
-    !!THE TANH WEIGHTING FUNCTION WILL MAKE THE TKE-BASED DEFINITION NEGLIGIBLE 
-    !!WHEN THE THETA-V-BASED DEFINITION IS ABOVE ~1 KM.
-    ktke   = 1
-    maxqke = MAX(qke1(kts),0.)
-    !Use 5% of tke max (Kosovic and Curry, 2000; JAS)
-    !TKEeps = maxtke/20. = maxqke/40.
-    TKEeps = maxqke/40.
-    TKEeps = MAX(TKEeps,0.01) !0.025) 
-    PBLH_TKE=0.
+if (stable_method == 0) then
+   !> - FOR STABLE BOUNDARY LAYERS, USE TKE METHOD TO COMPLEMENT THE
+   !! THETAV-BASED DEFINITION (WHEN THE THETA-V BASED PBLH IS BELOW ~0.5 KM).
+   !!THE TANH WEIGHTING FUNCTION WILL MAKE THE TKE-BASED DEFINITION NEGLIGIBLE 
+   !!WHEN THE THETA-V-BASED DEFINITION IS ABOVE ~1 KM.
+   ktke   = 1
+   maxqke = MAX(qke1(kts),zero)
+   !Use 5% of tke max (Kosovic and Curry, 2000; JAS)
+   !TKEeps = maxtke/20. = maxqke/40.
+   TKEeps = maxqke/40._kind_phys
+   TKEeps = MAX(TKEeps,0.01_kind_phys) !0.025) 
+   PBLH_STABLE=zero
 
-    k = ktke+1
-!    DO WHILE (PBLH_TKE .EQ. 0.) 
-    DO k=kts+1,kte-1
-       !QKE CAN BE NEGATIVE (IF CKmod == 0)... MAKE TKE NON-NEGATIVE.
-       qtke  =MAX(0.5*qke1(k)  ,0.)      ! maximum TKE
-       qtkem1=MAX(0.5*qke1(k-1),0.)
-       IF (qtke .LE. TKEeps) THEN
-           PBLH_TKE = zw1(k) - dz1(k-1)* &
-             & MIN((TKEeps-qtke)/MAX(qtkem1-qtke, 1E-6), one)
-           !IN CASE OF NEAR ZERO TKE, SET PBLH = LOWEST LEVEL.
-           PBLH_TKE = MAX(PBLH_TKE,zw1(kts+1))
-           !print *,"PBLH_TKE:",i,PBLH_TKE, Qke1(k)/2., zw1(kts+1)
-       ENDIF
-       !k = k+1
-       IF (k .EQ. kte-1) PBLH_TKE = zw1(kts+1) !EXIT SAFEGUARD
-       IF (PBLH_TKE .NE. 0.) exit
-    ENDDO
+   k = ktke+1
+   do k=kts+1,kte-1
+      !QKE CAN BE NEGATIVE (IF CKmod == 0)... MAKE TKE NON-NEGATIVE.
+      qtke  =MAX(half*qke1(k)  , zero)      ! maximum TKE
+      qtkem1=MAX(half*qke1(k-1), zero)
+      if (qtke .LE. TKEeps) then
+         PBLH_STABLE = zw1(k) - dz1(k-1)* &
+         & MIN((TKEeps-qtke)/MAX(qtkem1-qtke, 1E-6_kind_phys), one)
+         !IN CASE OF NEAR ZERO TKE, SET PBLH = LOWEST LEVEL.
+         PBLH_STABLE = MAX(PBLH_STABLE,zw1(kts+1))
+         !print *,"PBLH_STABLE:",i,PBLH_STABLE, Qke1(k)/2., zw1(kts+1)
+      endif
+      !k = k+1
+      if (k .EQ. kte-1) PBLH_STABLE = zw1(kts+1) !EXIT SAFEGUARD
+      if (PBLH_STABLE .NE. zero) exit
+   enddo
+   !> - The TKE-based PBLH can (rarely) become very large 
+   !! in grid points with deep convection (> 8 km!),
+   !! so a limit is imposed to not let PBLH_STABLE exceed the
+   !! theta_v-based PBL height +/- 350 m.
+   !! This has no impact on 99% of the domain.
+   PBLH_STABLE = MIN(PBLH_STABLE,pblh+350._kind_phys)
+   PBLH_STABLE = MAX(PBLH_STABLE,MAX(pblh-350._kind_phys,10._kind_phys))
+   !if in old pool situation, default to theta_v-based def
+   if (maxqke <= TKEeps) PBLH_STABLE = pblh
+else
+   pblh_stable = max(ust*700._kind_phys, 10._kind_phys)
+endif
 
-    !> - The TKE-based PBLH can (rarely) become very large 
-    !! in grid points with deep convection (> 8 km!),
-    !! so a limit is imposed to not let PBLH_TKE exceed the
-    !! theta_v-based PBL height +/- 350 m.
-    !! This has no impact on 99% of the domain.
-    PBLH_TKE = MIN(PBLH_TKE,pblh+350.)
-    PBLH_TKE = MAX(PBLH_TKE,MAX(pblh-350.,10.))
+!blend the stable and unstable pblh heights
+wt=half*TANH((pblh - sbl_lim)/sbl_damp) + half
+pblh=pblh_stable*(one-wt) + pblh*wt
 
-    wt=.5*TANH((pblh - sbl_lim)/sbl_damp) + .5
-    IF (maxqke <= TKEeps) THEN
-       !Cold pool situation - default to theta_v-based def
-    ELSE
-       !BLEND THE TWO PBLH TYPES HERE: 
-       pblh=PBLH_TKE*(1.-wt) + pblh*wt
-    ENDIF
-
-    !Compute kpbl
-    DO k=kts+1,kte-1
-       IF ( zw1(k) >= pblh) THEN
-          kpbl = k-1
-          exit
-       ENDIF
-    ENDDO
+!Compute kpbl
+do k=kts+1,kte-1
+   if ( zw1(k) >= pblh) then
+      kpbl = k-1
+      exit
+   endif
+enddo
 
 #ifdef HARDCODE_VERTICAL
 # undef kts
 # undef kte
 #endif
 
-  END SUBROUTINE GET_PBLH
+END SUBROUTINE GET_PBLH
 !> @}
   
 ! ==================================================================

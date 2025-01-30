@@ -5455,34 +5455,16 @@ ENDIF
 !!are now available for the stable pblh diagnostic, selectable by the
 !!stable_method internal parameter. Option 0 uses a TKE-based PBL height,
 !!which has been shown by Banta and Pichugina (2008) \cite Pichugina_2008 to be a good estimate of
-!!the PBL height in stable LLJ conditions. Option 1 selects a friction-velocity method,
-!!which is a very simple one-line diagnost that has been shown to be very reliable
-!!(cite). Therefore, a hybrid definition is implemented that uses both methods, weighting
-!!each higher in their respective regime they are tuned to best handle. 
+!!the PBL height in stable LLJ conditions. Option 1 selects a friction-velocity method of
+!!Koracin and Berkowicz (1988\cite Koracin_Berkowicz_1988), which is a very simple one-line
+!!diagnostic that has been shown to be very reliable strictly within the stable regime
+!!(Steeneveld et al. 2007\cite Steeneveld_et_al_2007). Therefore, a blending (hybrid)
+!!method is implemented that uses both methods, weighting each higher in their
+!!respective specialized regime. 
 !>\section gen_get_pblh  GSD get_pblh General Algorithm
 !> @{
 SUBROUTINE GET_PBLH(KTS,KTE,pblh,thv1,qke1,ust,zw1,dz1,landsea,kpbl)
 
-!---------------------------------------------------------------
-!             NOTES ON THE PBLH FORMULATION
-!This subroutine calculates hybrid diagnotic boundary-layer height (PBLH).
-!Two different diagnostics are calculated, each of them specialized for a
-!distinct regime (stbale and unstable). The two diagnostics are then blended
-!according to low-level stability, where the magnitude of the of the "unstable"
-!pbl height is used as a proxy for the low-level stability. The unstable pblh uses
-!the delta-theta-increase method, which defines the pbl height as the level at 
-!which the potential temperature first exceeds the minimum potential 
-!temperature within the boundary layer by some specified delta (about 1.5 K).
-!When applied to observed temperatures, this method has been shown to produce PBL-
-!height estimates that are unbiased relative to profiler-based 
-!estimates (Nielsen-Gammon et al. 2008), but it can be biased in stable conditions.
-!Two options are now available for the stable pblh diagnostic, selectable by the
-!"stable_method" internal parameter. Option 0 uses a TKE-based PBL height,
-!which has been shown by Banta and Pichugina (2008) to be a good estimate of
-!the PBL height in stable LLJ conditions. Option 1 selects a friction-velocity method,
-!which is a very simple one-line diagnost that has been shown to be very reliable
-!(cite). Therefore, a hybrid definition is implemented that uses both methods, weighting
-!each higher in their respective regime they are tuned to best handle.
 !---------------------------------------------------------------
 
 integer,intent(in) :: KTS,KTE

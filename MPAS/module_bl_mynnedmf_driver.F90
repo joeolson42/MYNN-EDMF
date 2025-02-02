@@ -47,8 +47,9 @@
                   bl_mynn_tkeadvect , bl_mynn_tkebudget , bl_mynn_cloudpdf   , bl_mynn_mixlength  , &
                   bl_mynn_closure   , bl_mynn_stfunc    , bl_mynn_topdown    , bl_mynn_scaleaware , &
                   bl_mynn_dheat_opt , bl_mynn_edmf      , bl_mynn_edmf_dd    , bl_mynn_edmf_mom   , &
-                  bl_mynn_edmf_tke  , bl_mynn_output    , bl_mynn_mixscalars , bl_mynn_cloudmix   , &
-                  bl_mynn_mixqt     , errmsg            , errflg                                    &
+                  bl_mynn_edmf_tke  , bl_mynn_output    , bl_mynn_mixscalars , bl_mynn_mixaerosols, &
+                  bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      ,                      &
+                  errmsg            , errflg                                                        &
 #if(WRF_CHEM == 1)
                  ,mix_chem   , nchem        , kdvel       , ndvel        , chem3d        , vd3d   , &
                   frp_mean   , emis_ant_no                                                          &
@@ -94,6 +95,8 @@
     bl_mynn_edmf_tke,   &!
     bl_mynn_output,     &!
     bl_mynn_mixscalars, &!
+    bl_mynn_mixaerosols,&!
+    bl_mynn_mixnumcon,  &!
     bl_mynn_cloudmix,   &!
     bl_mynn_mixqt,      &!
     bl_mynn_tkebudget    !
@@ -250,7 +253,10 @@
  real(kind=kind_phys):: frp1,emisant_no1
  real(kind=kind_phys),dimension(kdvel,ndvel):: vd1
  real(kind=kind_phys),dimension(kts:kte,nchem):: chem1
-
+!generic scalar array support
+ integer, parameter :: nscalars=1
+ real(kind=kind_phys),dimension(kts:kte,nscalars):: scalars
+ 
  integer:: i,k,j
 
  integer:: dheat_opt
@@ -452,6 +458,7 @@
     frp1        = 0.0
     emisant_no1 = 0.0
 #endif
+    scalars     = 0.0
 
     do k = kts,kte
        rqcblten1(k)   = 0._kind_phys
@@ -506,6 +513,7 @@
             ndvel           = ndvel         , chem        = chem1         , emis_ant_no = emisant_no1  , &
             frp             = frp1          , vdep        = vd1                                        , &
 !#endif
+            nscalars        = nscalars      , scalars     = scalars       ,                              &
             bl_mynn_tkeadvect  = bl_mynn_tkeadvect    , &
             tke_budget         = bl_mynn_tkebudget    , &
             bl_mynn_cloudpdf   = bl_mynn_cloudpdf     , &
@@ -515,6 +523,8 @@
             bl_mynn_edmf_mom   = bl_mynn_edmf_mom     , &
             bl_mynn_edmf_tke   = bl_mynn_edmf_tke     , &
             bl_mynn_mixscalars = bl_mynn_mixscalars   , &
+            bl_mynn_mixaerosols= bl_mynn_mixaerosols  , &
+            bl_mynn_mixnumcon  = bl_mynn_mixnumcon    , &
             bl_mynn_output     = bl_mynn_output       , &
             bl_mynn_cloudmix   = bl_mynn_cloudmix     , &
             bl_mynn_mixqt      = bl_mynn_mixqt        , &

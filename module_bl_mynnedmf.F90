@@ -389,6 +389,8 @@ CONTAINS
              chem               , vdep              , frp               , &
              emis_ant_no        , mix_chem,enh_mix  , rrfs_sd           , &
              smoke_dbg          ,                                         &
+             !generic scalar array
+             scalars            , nscalars          ,                     &
              !higher-order moments
              tsq1               , qsq1              , cov1              , &
              !tendencies
@@ -409,8 +411,8 @@ CONTAINS
              bl_mynn_tkeadvect  , tke_budget        , bl_mynn_cloudpdf  , &
              bl_mynn_mixlength  , icloud_bl         , closure           , &
              bl_mynn_edmf       , bl_mynn_edmf_mom  , bl_mynn_edmf_tke  , &
-             bl_mynn_mixscalars , bl_mynn_output    , bl_mynn_cloudmix  , &
-             bl_mynn_mixqt      ,                                         &
+             bl_mynn_mixscalars , bl_mynn_mixaerosols,bl_mynn_mixnumcon , &
+             bl_mynn_output     , bl_mynn_cloudmix  , bl_mynn_mixqt     , &
              !3d emdf output
              edmf_a1            , edmf_w1           , edmf_qt1          , &
              edmf_thl1          , edmf_ent1         , edmf_qc1          , &
@@ -436,6 +438,8 @@ CONTAINS
  integer, intent(in) :: bl_mynn_edmf_mom
  integer, intent(in) :: bl_mynn_edmf_tke
  integer, intent(in) :: bl_mynn_mixscalars
+ integer, intent(in) :: bl_mynn_mixaerosols
+ integer, intent(in) :: bl_mynn_mixnumcon
  integer, intent(in) :: bl_mynn_output
  integer, intent(in) :: bl_mynn_cloudmix
  integer, intent(in) :: bl_mynn_mixqt
@@ -500,14 +504,17 @@ CONTAINS
        pdk1, pdt1, pdq1, pdc1,                                      &
        vt1, vq1, sgm1, kzero1
 
-! smoke/chemical arrays
+!smoke/chemical arrays
  integer, intent(in) ::   nchem, kdvel, ndvel
  real(kind_phys), dimension(kts:kte,nchem), intent(inout) :: chem
  real(kind_phys), dimension(ndvel), intent(in)    :: vdep
  real(kind_phys),                   intent(in)    :: frp,emis_ant_no
  real(kind_phys), dimension(kts:kte+1,nchem)      :: s_awchem1
  integer :: ic
-
+!scalar array
+ integer, intent(in) ::   nscalars 
+ real(kind_phys), dimension(kts:kte,nscalars), intent(inout) :: scalars
+ real(kind_phys), dimension(kts:kte+1,nscalars)      :: s_awscalars1
 !local vars
 !mass-flux variables
  real(kind_phys), dimension(kts:kte) ::                             &
@@ -796,6 +803,7 @@ CONTAINS
     s_awqnifa1 =zero
     s_awqnbca1 =zero
     s_awchem1(kts:kte+1,1:nchem) = zero
+    s_awscalars1(kts:kte+1,1:nscalars) = zero
     !edmf-downdraft
     edmf_a_dd1 =zero
     edmf_w_dd1 =zero
@@ -935,6 +943,8 @@ CONTAINS
             &bl_mynn_edmf_mom,                        &
             &bl_mynn_edmf_tke,                        &
             &bl_mynn_mixscalars,                      &
+            &bl_mynn_mixaerosols,                     &
+            &bl_mynn_mixnumcon,                       &
             &u1,v1,w1,th1,thl1,thv1,tk1,              &
             &sqw1,sqv1,sqc1,qke1,                     &
             &qnc1,qni1,qnwfa1,qnifa1,qnbca1,          &
@@ -960,6 +970,7 @@ CONTAINS
             ! chem/smoke mixing
             &nchem,chem,s_awchem1,                    &
             &mix_chem,                                &
+            &nscalars,scalars,s_awscalars1,           &
             &qc_bl1,cldfra_bl1,                       &
             &qc_bl1_old,cldfra_bl1_old,               &
             &FLAG_QC,FLAG_QI,                         &
@@ -1101,7 +1112,9 @@ CONTAINS
             &bl_mynn_mixqt,                              &
             &bl_mynn_edmf,                               &
             &bl_mynn_edmf_mom,                           &
-            &bl_mynn_mixscalars                          )
+            &bl_mynn_mixscalars,                         &
+            &bl_mynn_mixaerosols,                        &
+            &bl_mynn_mixnumcon                           )
 
     if ( mix_chem ) then
        if ( rrfs_sd ) then 
@@ -1135,7 +1148,18 @@ CONTAINS
           enddo
        enddo
     endif
- 
+
+    if ( bl_mynn_mixscalars .eq. 1) then
+       call mynn_mix_scalars(kts,kte,i,               &
+            &delt, dz1,                               &
+            &nscalars, scalars,                       &
+            &rho1, flt,                               &
+            &tcd1, qcd1,                              &
+            &dfh1,                                    &
+            &s_aw1,s_awscalars1                       )
+    endif
+       
+    
     call retrieve_exchange_coeffs(kts,kte,               &
          dfm1, dfh1, dz1, km1, kh1                       )
 
@@ -3881,7 +3905,9 @@ CONTAINS
        &bl_mynn_mixqt,                        &
        &bl_mynn_edmf,                         &
        &bl_mynn_edmf_mom,                     &
-       &bl_mynn_mixscalars                    )
+       &bl_mynn_mixscalars,                   &
+       &bl_mynn_mixaerosols,                  &
+       &bl_mynn_mixnumcon                     )
 
 !-------------------------------------------------------------------
     integer, intent(in) :: kts,kte,i
@@ -3893,7 +3919,8 @@ CONTAINS
 
     integer, intent(in) :: bl_mynn_cloudmix,bl_mynn_mixqt,                &
                            bl_mynn_edmf,bl_mynn_edmf_mom,                 &
-                           bl_mynn_mixscalars
+                           bl_mynn_mixscalars,bl_mynn_mixaerosols,        &
+                           bl_mynn_mixnumcon
     logical, intent(in) :: FLAG_QI,FLAG_QNI,FLAG_QC,FLAG_QS,              &
          &FLAG_QNC,FLAG_QNWFA,FLAG_QNIFA,FLAG_QNBCA,FLAG_OZONE
 
@@ -4499,7 +4526,7 @@ ENDIF
 !! cloud ice number concentration (qni)
 !!============================================
 IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNI .AND. &
-      bl_mynn_mixscalars > 0) THEN
+      bl_mynn_mixnumcon > 0) THEN
 
     DO k=kts,kte
        qni2(k)=max(qni(k), zero)
@@ -4561,7 +4588,7 @@ ENDIF
 !! include non-local transport                
 !!============================================
   IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNC .AND. &
-      bl_mynn_mixscalars > 0) THEN
+      bl_mynn_mixnumcon > 0) THEN
 
     DO k=kts,kte
        qnc2(k)=max(qnc(k),zero)
@@ -4622,7 +4649,7 @@ ENDIF
 ! Water-friendly aerosols ( qnwfa ).
 !============================================
 IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNWFA .AND. &
-      bl_mynn_mixscalars > 0) THEN
+      bl_mynn_mixaerosols > 0) THEN
 
     do k=kts,kte
        qnwfa2(k)=max(qnwfa(k),zero)
@@ -4687,7 +4714,7 @@ ENDIF
 ! Ice-friendly aerosols ( qnifa ).
 !============================================
 IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNIFA .AND. &
-      bl_mynn_mixscalars > 0) THEN
+      bl_mynn_mixaerosols > 0) THEN
 
     do k=kts,kte
        qnifa2(k)=max(qnifa(k),zero)
@@ -4752,7 +4779,7 @@ ENDIF
 ! Black-carbon aerosols ( qnbca ).           
 !============================================
 IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNBCA .AND. &
-      bl_mynn_mixscalars > 0) THEN
+      bl_mynn_mixaerosols > 0) THEN
 
    k=kts
 
@@ -4892,7 +4919,7 @@ ENDIF
       !===================
       ! CLOUD WATER NUM CONC TENDENCY
       !===================
-      IF (FLAG_QNC .AND. bl_mynn_mixscalars > 0) THEN
+      IF (FLAG_QNC .AND. bl_mynn_mixnumcon > 0) THEN
          DO k=kts,kte
            Dqnc(k) = (qnc2(k)-qnc(k))/delt
            !IF(Dqnc(k)*delt + qnc(k) < 0.)Dqnc(k)=-qnc(k)/delt
@@ -4933,7 +4960,7 @@ ENDIF
       !===================
       ! CLOUD ICE NUM CONC TENDENCY
       !===================
-      IF (FLAG_QNI .AND. bl_mynn_mixscalars > 0) THEN
+      IF (FLAG_QNI .AND. bl_mynn_mixnumcon > 0) THEN
          DO k=kts,kte
            Dqni(k)=(qni2(k)-qni(k))/delt
            !IF(Dqni(k)*delt + qni(k) < 0.)Dqni(k)=-qni(k)/delt
@@ -4999,7 +5026,7 @@ ENDIF
     ! AEROSOL TENDENCIES
     !===================
     IF (FLAG_QNWFA .AND. FLAG_QNIFA .AND. &
-        bl_mynn_mixscalars > 0) THEN
+        bl_mynn_mixaerosols > 0) THEN
        DO k=kts,kte
           !=====================
           ! WATER-friendly aerosols
@@ -5020,7 +5047,7 @@ ENDIF
     !========================
     ! BLACK-CARBON TENDENCIES
     !========================
-    IF (FLAG_QNBCA .AND. bl_mynn_mixscalars > 0) THEN
+    IF (FLAG_QNBCA .AND. bl_mynn_mixaerosols > 0) THEN
        DO k=kts,kte
           Dqnbca(k)=(qnbca2(k) - qnbca(k))/delt
        ENDDO
@@ -5297,6 +5324,100 @@ ENDIF
 
   END SUBROUTINE mynn_mix_chem
 
+!==================================================================
+
+  SUBROUTINE mynn_mix_scalars(            &
+       kts,kte,i,                         &
+       delt,dz,                           &
+       nscalars, scalars,                 &
+       rho,                               &
+       flt, tcd, qcd,                     &
+       dfh,                               &
+       s_aw1, s_awscalars1                )
+
+!-------------------------------------------------------------------
+    integer, intent(in) :: kts,kte,i
+    real(kind_phys), dimension(kts:kte), intent(in) :: dfh,dz,tcd,qcd
+    real(kind_phys), dimension(kts:kte), intent(in) :: rho
+    real(kind_phys), intent(in)    :: flt
+    real(kind_phys), intent(in)    :: delt
+    integer, intent(in) :: nscalars
+    real(kind_phys), dimension( kts:kte+1), intent(in) :: s_aw1
+    real(kind_phys), dimension( kts:kte, nscalars ), intent(inout) :: scalars
+    real(kind_phys), dimension( kts:kte+1,nscalars), intent(in) :: s_awscalars1
+    !local vars
+    real(kind_phys), dimension(kts:kte) :: dtz
+    real(kind_phys), dimension(kts:kte) :: a,b,c,d,x
+    real(kind_phys):: rhs,dztop
+    real(kind_phys):: dzk 
+    integer :: k,ns  !loop indecies
+
+    real(kind_phys), dimension(kts:kte) :: rhoinv
+    real(kind_phys), dimension(kts:kte+1) :: rhoz,khdz
+
+    dztop=.5*(dz(kte)+dz(kte-1))
+    
+    DO k=kts,kte
+       dtz(k)=delt/dz(k)
+    ENDDO
+
+    !Prepare "constants" for diffusion equation.
+    !khdz = rho*Kh/dz = rho*dfh
+    rhoz(kts)  =rho(kts)
+    rhoinv(kts)=one/rho(kts)
+    khdz(kts)  =rhoz(kts)*dfh(kts)
+
+    DO k=kts+1,kte
+       rhoz(k)  =(rho(k)*dz(k-1) + rho(k-1)*dz(k))/(dz(k-1)+dz(k))
+       rhoz(k)  =   MAX(rhoz(k),1E-4_kind_phys)
+       rhoinv(k)=one/MAX(rho(k),1E-4_kind_phys)
+       dzk      = half*( dz(k)+dz(k-1) )
+       khdz(k)  = rhoz(k)*dfh(k)
+    ENDDO
+    rhoz(kte+1)=rhoz(kte)
+    khdz(kte+1)=rhoz(kte+1)*dfh(kte)
+
+    !stability criteria for mf
+    DO k=kts+1,kte-1
+       khdz(k) = MAX(khdz(k),  half*s_aw1(k))
+       khdz(k) = MAX(khdz(k), -half*(s_aw1(k)-s_aw1(k+1)))
+    ENDDO
+
+    !============================================
+    ! Patterned after mixing of water vapor in mynn_tendencies.
+    !============================================
+
+    DO ns = 1,nscalars
+       k=kts
+
+       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
+       b(k)=1.+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k) - half*dtz(k)*rhoinv(k)*s_aw1(k+1)
+       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)           - half*dtz(k)*rhoinv(k)*s_aw1(k+1)
+       d(k)=scalars(k,ns) - dtz(k)*rhoinv(k)*s_awscalars1(k+1,ns)
+
+       DO k=kts+1,kte-1
+          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)     + half*dtz(k)*rhoinv(k)*s_aw1(k)
+          b(k)=1.+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k) + &
+             &    half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))
+          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k) - half*dtz(k)*rhoinv(k)*s_aw1(k+1)
+          d(k)=scalars(k,ns) + dtz(k)*rhoinv(k)*(s_awscalars1(k,ns)-s_awscalars1(k+1,ns))
+       ENDDO
+
+       ! prescribed value at top
+       a(kte)=0.
+       b(kte)=1.
+       c(kte)=0.
+       d(kte)=scalars(kte,ns)
+
+       CALL tridiag3(kte,a,b,c,d,x)
+
+       DO k=kts,kte
+          scalars(k,ns)=max(1e-12_kind_phys, x(k))
+       ENDDO
+    ENDDO
+
+  END SUBROUTINE mynn_mix_scalars
+  
 ! ==================================================================
 !>\ingroup gsd_mynn_edmf
   SUBROUTINE retrieve_exchange_coeffs(kts,kte,dfm,dfh,dz,km1,kh1)
@@ -5611,6 +5732,7 @@ END SUBROUTINE GET_PBLH
                  & momentum_opt,                   &
                  & tke_opt,                        &
                  & scalar_opt,                     &
+                 & aerosol_opt, numcon_opt,        &
                  & u1,v1,w1,th1,thl1,thv1,tk1,     &
                  & qt1,qv1,qc1,qke1,               &
                  & qnc1,qni1,qnwfa1,qnifa1,qnbca1, &
@@ -5635,6 +5757,8 @@ END SUBROUTINE GET_PBLH
             ! chem/smoke
                  & nchem,chem1,s_awchem1,          &
                  & mix_chem,                       &
+            ! generic scalar array
+                 & nscalars,scalars,s_awscalars1,  &                 
             ! in/outputs - subgrid scale clouds
                  & qc_bl1,cldfra_bl1,              &
                  & qc_bl1_old,cldfra_bl1_old,      &
@@ -5658,6 +5782,7 @@ END SUBROUTINE GET_PBLH
  integer, intent(in) ::                                            &
       kts,                kte,                  kpbl,              &
       momentum_opt,       tke_opt,              scalar_opt,        &
+      aerosol_opt,        numcon_opt,                              &
       spp_pbl,            i,                    j
  real(kind_phys), dimension(kts:kte), intent(in)  :: pattern_spp_pbl1
 ! state variables
@@ -5736,7 +5861,13 @@ END SUBROUTINE GET_PBLH
  integer :: ic
  real(kind_phys),dimension(kts:kte,   nchem) :: edmf_chem
  logical, intent(in) :: mix_chem
-
+ !generic scalars
+ integer, intent(in) :: nscalars
+ real(kind_phys),dimension(kts:kte,   nscalars) :: scalars
+ real(kind_phys),dimension(kts:kte+1, nscalars) :: s_awscalars1
+ real(kind_phys),dimension(nscalars)            :: scalarsn
+ real(kind_phys),dimension(kts:kte+1,1:NUP,nscalars) :: upscalars
+ 
  logical :: superadiabatic
 
  ! Varaibles for mass flux cloud fraction
@@ -5809,6 +5940,9 @@ END SUBROUTINE GET_PBLH
  if ( mix_chem ) then
     UPCHEM(kts:kte+1,1:NUP,1:nchem)=zero
  endif
+ if ( scalar_opt > 0 ) then
+    upscalars(kts:kte+1,1:NUP,1:nscalars)=zero
+ endif
  ENT       =0.001
  ! Initialize mean updraft properties
  edmf_a1   =zero
@@ -5837,7 +5971,9 @@ END SUBROUTINE GET_PBLH
  if ( mix_chem ) then
     s_awchem1(kts:kte+1,1:nchem) = zero
  endif
-
+ if ( scalar_opt > 0 ) then
+    s_awscalars1(kts:kte+1,1:nscalars) = zero
+ endif
  ! Initialize explicit tendencies for subsidence & detrainment
  sub_thl1 = zero
  sub_sqv1 = zero
@@ -6116,7 +6252,14 @@ END SUBROUTINE GET_PBLH
         enddo
       enddo
     endif
-
+    if ( scalar_opt > 0 ) then
+      do ip=1,NUP
+        do ic = 1,nscalars
+          upscalars(1,ip,ic)=(scalars(kts,ic)*dz1(kts+1)+scalars(kts+1,ic)*dz1(kts))/(dz1(kts)+dz1(kts+1))
+        enddo
+      enddo
+   endif
+   
     !Initialize environmental variables which can be modified by detrainment
     envm_thl(kts:kte)=thl1(kts:kte)
     envm_sqv(kts:kte)=qv1(kts:kte)
@@ -6203,7 +6346,12 @@ END SUBROUTINE GET_PBLH
               chemn(ic)=UPCHEM(k-1,ip,ic)*(1.-EntExp) + chem1(k,ic)*EntExp
             enddo
           endif
-
+          if ( scalar_opt > 0 ) then
+            do ic = 1,nscalars
+              scalarsn(ic)=upscalars(k-1,ip,ic)*(1.-EntExp) + scalars(k,ic)*EntExp
+            enddo
+          endif
+          
           ! Define pressure at model interface
           Pk    =(p1(k)*dz1(k+1)+p1(k+1)*dz1(k))/(dz1(k+1)+dz1(k))
           ! Compute plume properties thvn and qcn
@@ -6319,11 +6467,16 @@ END SUBROUTINE GET_PBLH
              UPQNIFA(K,IP)=QNIFAn
              UPQNBCA(K,IP)=QNBCAn
              UPA(K,IP)=UPA(K-1,IP)
-             IF ( mix_chem ) THEN
+             if ( mix_chem ) then
                do ic = 1,nchem
                  UPCHEM(k,ip,ic) = chemn(ic)
                enddo
-             ENDIF
+             endif
+             if ( scalar_opt > 0 ) then
+               do ic = 1,nscalars
+                 upscalars(k,ip,ic) = scalarsn(ic)
+               enddo
+             endif
              ktop = MAX(ktop,k)
           ELSE
              if (debug_mf == 1 .and. i==idbg .and. j==jdbg) then
@@ -6413,12 +6566,27 @@ END SUBROUTINE GET_PBLH
           enddo
        enddo
     endif
-
-    if (scalar_opt > 0) then
+    !scalars
+    if ( scalar_opt > 0 ) then
+       do k=kts,kte-1
+          do ip=1,nup
+             do ic = 1,nscalars
+                s_awscalars1(k+1,ic) = s_awscalars1(k+1,ic) + rhoz(k)*UPA(K,ip)*UPW(K,ip)*upscalars(k,ip,ic)*Psig_w
+             enddo
+          enddo
+       enddo
+    endif
+    if (numcon_opt > 0) then
        do ip=1,nup
           do k=kts,kte-1
              s_awqnc1(k+1)  = s_awqnc1(K+1)   + rhoz(k)*UPA(K,ip)*UPW(K,ip)*UPQNC(K,ip)*Psig_w
              s_awqni1(k+1)  = s_awqni1(K+1)   + rhoz(k)*UPA(K,ip)*UPW(K,ip)*UPQNI(K,ip)*Psig_w
+          enddo
+       enddo
+    endif
+    if (aerosol_opt > 0) then
+       do ip=1,nup
+          do k=kts,kte-1
              s_awqnwfa1(k+1)= s_awqnwfa1(K+1) + rhoz(k)*UPA(K,ip)*UPW(K,ip)*UPQNWFA(K,ip)*Psig_w
              s_awqnifa1(k+1)= s_awqnifa1(K+1) + rhoz(k)*UPA(K,ip)*UPW(K,ip)*UPQNIFA(K,ip)*Psig_w
              s_awqnbca1(k+1)= s_awqnbca1(K+1) + rhoz(k)*UPA(K,ip)*UPW(K,ip)*UPQNBCA(K,ip)*Psig_w
@@ -6448,11 +6616,15 @@ END SUBROUTINE GET_PBLH
       s_awqt1    = s_awqt1*adjustment
       s_awqc1    = s_awqc1*adjustment
       s_awqv1    = s_awqv1*adjustment
-      s_awqnc1   = s_awqnc1*adjustment
-      s_awqni1   = s_awqni1*adjustment
-      s_awqnwfa1 = s_awqnwfa1*adjustment
-      s_awqnifa1 = s_awqnifa1*adjustment
-      s_awqnbca1 = s_awqnbca1*adjustment
+      if (numcon_opt > 0) then
+         s_awqnc1   = s_awqnc1*adjustment
+         s_awqni1   = s_awqni1*adjustment
+      endif
+      if (aerosol_opt > 0) then
+         s_awqnwfa1 = s_awqnwfa1*adjustment
+         s_awqnifa1 = s_awqnifa1*adjustment
+         s_awqnbca1 = s_awqnbca1*adjustment
+      endif
       IF (momentum_opt > 0) THEN
          s_awu1  = s_awu1*adjustment
          s_awv1  = s_awv1*adjustment
@@ -6462,6 +6634,9 @@ END SUBROUTINE GET_PBLH
       ENDIF
       IF ( mix_chem ) THEN
          s_awchem1 = s_awchem1*adjustment
+      ENDIF
+      IF ( scalar_opt > 0 ) THEN
+         s_awscalars1 = s_awscalars1*adjustment
       ENDIF
       UPA = UPA*adjustment
    ENDIF

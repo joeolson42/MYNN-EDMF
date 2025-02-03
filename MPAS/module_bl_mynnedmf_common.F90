@@ -81,6 +81,13 @@
  real(kind_phys),parameter:: xlvcp  = xlv/cp
  real(kind_phys),parameter:: g_inv  = 1./grav
 
+ real(kind_phys), parameter :: wfa_max = 800e12  !kg-1
+ real(kind_phys), parameter :: wfa_min = 1e6     !kg-1
+ real(kind_phys), parameter :: ifa_max = 500e6   !kg-1
+ real(kind_phys), parameter :: ifa_min = 0.0     !kg-1
+ real(kind_phys), parameter :: wfa_ht  = 2000.   !meters
+ real(kind_phys), parameter :: ifa_ht  = 10000.  !meters 
+
 ! grav   = g
 ! t0c    = svpt0        != 273.15
 ! ep_3   = 1.-ep_2      != 0.378                                                                                   

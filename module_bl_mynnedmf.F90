@@ -1990,7 +1990,7 @@ CONTAINS
            zwk = zw(k)              !full-sigma levels
            dzk = 0.5*( dz(k)+dz(k-1) )
            cldavg = 0.5*(cldfra_bl1(k-1)+cldfra_bl1(k))
-           qkw_mf = max((half*((edmf_a1(k)+edmf_a1(k-1))))*(half*(edmf_w1(k)+edmf_w1(k-1))), &
+           qkw_mf = max((half*(edmf_a1(k)+edmf_a1(k-1)))*(half*(edmf_w1(k)+edmf_w1(k-1))), &
                   & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
 
            !   **  Length scale limited by the buoyancy effect  **
@@ -2882,7 +2882,7 @@ CONTAINS
 !      Add min background stability function (diffusivity) within model levels
 !      with active plumes and clouds.
        cldavg = half*(cldfra_bl1(k-1) + cldfra_bl1(k))
-       mfmax  = max(half*(edmf_a1(k-1)+edmf_a1(k))*half*(edmf_w1(k-1)*edmf_w1(k)),abs(edmf_a_dd1(k)*edmf_w_dd1(k)))
+       mfmax  = max(half*(edmf_a1(k-1)+edmf_a1(k))*half*(edmf_w1(k-1)+edmf_w1(k)),abs(edmf_a_dd1(k)*edmf_w_dd1(k)))
        ! impose minimum for mass-flux columns
        sm(k) = max(sm(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
        sh(k) = max(sh(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )

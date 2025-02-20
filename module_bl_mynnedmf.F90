@@ -1873,7 +1873,7 @@ CONTAINS
 
         DO k = kts+1,kte
            zwk    = zw(k)          !full-sigma levels
-           qkw_mf = max(half*((edmf_a1(k)+edmf_a1(k-1))*(edmf_w1(k)+edmf_w1(k-1))), &
+           qkw_mf = max((half*((edmf_a1(k)+edmf_a1(k-1))))*(half*((edmf_w1(k)+edmf_w1(k-1)))), &
                   & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
 
            !   **  Length scale limited by the buoyancy effect  **
@@ -1990,7 +1990,7 @@ CONTAINS
            zwk = zw(k)              !full-sigma levels
            dzk = 0.5*( dz(k)+dz(k-1) )
            cldavg = 0.5*(cldfra_bl1(k-1)+cldfra_bl1(k))
-           qkw_mf = max(half*((edmf_a1(k)+edmf_a1(k-1))*(edmf_w1(k)+edmf_w1(k-1))), &
+           qkw_mf = max((half*((edmf_a1(k)+edmf_a1(k-1))))*(half*(edmf_w1(k)+edmf_w1(k-1))), &
                   & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
 
            !   **  Length scale limited by the buoyancy effect  **
@@ -2882,7 +2882,7 @@ CONTAINS
 !      Add min background stability function (diffusivity) within model levels
 !      with active plumes and clouds.
        cldavg = half*(cldfra_bl1(k-1) + cldfra_bl1(k))
-       mfmax  = max(half*(edmf_a1(k-1)+edmf_a1(k))*(edmf_w1(k-1)*edmf_w1(k)),abs(edmf_a_dd1(k)*edmf_w_dd1(k)))
+       mfmax  = max(half*(edmf_a1(k-1)+edmf_a1(k))*half*(edmf_w1(k-1)*edmf_w1(k)),abs(edmf_a_dd1(k)*edmf_w_dd1(k)))
        ! impose minimum for mass-flux columns
        sm(k) = max(sm(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
        sh(k) = max(sh(k), 0.04_kind_phys*min(10._kind_phys*mfmax,one) )
@@ -3497,8 +3497,8 @@ END IF
          &cldfra_rh0,cldfra_rh1,cldfra_qsq0,cldfra_qsq1,clim,qlim
     !lower limits for sgm (for mixing ratio estimates) in case sgm falls out (% of qw)
     real(kind_phys), parameter :: qlim_sfc =0.008
-    real(kind_phys), parameter :: qlim_pbl =0.021
-    real(kind_phys), parameter :: qlim_trp =0.026
+    real(kind_phys), parameter :: qlim_pbl =0.020
+    real(kind_phys), parameter :: qlim_trp =0.025
     !lower limits for sqm (for cloud fraction) in case sgm falls out (% of qw)
     real(kind_phys), parameter :: clim_sfc =0.010
     real(kind_phys), parameter :: clim_pbl =0.025
@@ -3772,7 +3772,7 @@ END IF
            !cldfra_qsq0   = max(zero, min(one, half+0.35*atan(4.1*(q1k))))
            cldfra_qsq0   = max(zero, min(one, half+0.35*atan(3.6*(q1k+0.05))))
            !cldfra_qsq1   = max(zero, min(one, half+0.37*atan(2.1*(q1k+0.4))))
-           cldfra_qsq1   = max(zero, min(one, half+0.41*atan(1.4*(q1k+0.55))))
+           cldfra_qsq1   = max(zero, min(one, half+0.39*atan(1.6*(q1k+0.55))))
            cldfra_qsq    = cldfra_qsq0*(one-wt2) + cldfra_qsq1*wt2
 
            !For ceiling detection, apply minimum rh-based cloud fraction
@@ -3791,8 +3791,8 @@ END IF
            qlim   = qlim_sfc*(one-wt) + qlim*wt
            sgmq   = max(sgmq, qw(k)*qlim)
            
-           ql_water = min(sgmq, 0.026*qw(k))*cldfra_bl1(k)
-           ql_ice   = min(sgmq, 0.026*qw(k))*cldfra_bl1(k)
+           ql_water = min(sgmq, 0.025*qw(k))*cldfra_bl1(k)
+           ql_ice   = min(sgmq, 0.025*qw(k))*cldfra_bl1(k)
 
            ! The cloud water formulations are taken from CB02, Eq. 8.
 !           maxqc = max(qw(k) - qsat_tk, zero)
@@ -5661,7 +5661,7 @@ IF ( rrfs_sd .and. enh_mix ) THEN
          ENDIF
          IF ( frp > frp_threshold ) THEN
             kmaxfire = ceiling(log(frp))
-            khdz(k) = MAX(1.1*khdz(k), (1. - k/(kmaxfire*two)) * ((log(frp))**2- two*log(frp)) / dz(k)*rhoz(k)) ! JLS 12/21/21
+            khdz(k) = MAX(1.1*khdz(k), (one - k/(kmaxfire*two)) * ((log(frp))**2 - two*log(frp)) / dz(k)*rhoz(k)) ! JLS 12/21/21
 !            khdz(k) = MAX(khdz(k),khdz_back)
          ENDIF
       ENDIF
@@ -6712,7 +6712,7 @@ END SUBROUTINE GET_PBLH
     envm_sqc(kts:kte)=qc1(kts:kte)
     envm_u(kts:kte)  =u1(kts:kte)
     envm_v(kts:kte)  =v1(kts:kte)
-    !Caluclulate some interface properties from mass levels
+    !Interpolate some mass-layer variables to interface variables
     rhoi(kts)   = rho1(kts)
     dzi(kts)    = half*dz1(kts)
     exneri(kts) = ex1(kts)
@@ -6904,7 +6904,7 @@ END SUBROUTINE GET_PBLH
           envm_v(k)  =envm_v(k)   + (half*(Vn + UPV(k,IP)) - v1(K))*detrateUV*aratio*MIN(dzp,dzpmax)
 
           IF (Wn > 0.) THEN
-             !Update plume variables at current k index
+             !Update plume variables at the k+1 index we just integrated to.
              UPW(k+1,IP)=Wn  !sqrt(Wn2)
              UPTHV(k+1,IP)=THVn
              UPTHL(k+1,IP)=THLn
@@ -6958,7 +6958,7 @@ END SUBROUTINE GET_PBLH
              print *,'ENT:',ENT(:,ip)
           ENDIF
        ENDIF
-       ktop_plume(ip)=k
+       ktop_plume(ip)=k !index where each individual plume stopped rising.
     ENDDO !end plume # loop
  ELSE
     !At least one of the conditions was not met for activating the MF scheme.
@@ -7258,7 +7258,7 @@ END SUBROUTINE GET_PBLH
    do k=kts+1,kte-2
       if (k > KTOP) exit
          if(edmf_qc1(k) > zero ) then !.and. (cldfra_bl1(k) < cf_thresh))THEN
-            !interpolate plume quantities to mass levels - already done
+            !plume properties within mass layers.
             Aup = edmf_a1(k)
             THp = edmf_th1(k)
             QTp = edmf_qt1(k)
@@ -7305,7 +7305,6 @@ END SUBROUTINE GET_PBLH
             !sigq = SQRT(sigq**2 + sgm1(k)**2)    ! combined conv + stratus components
             !Per S.DeRoode 2009?
             sigq = 10. * Aup * (QTp - qt1(k))
-            !sigq = 50. * Aup * (QTp - qt1(k)) 
             !constrain sigq wrt saturation:
             sigq = max(sigq, qsat_tk*0.03)
             sigq = min(sigq, qsat_tk*0.25)
@@ -8383,12 +8382,12 @@ SUBROUTINE SCALE_AWARE(dx,pblh,Psig_bl,Psig_shcu)
          dummy_psi = two*log(half*(one+dummy_0))+log(half*(one+dummy_0**2))-two*atan(dummy_0)+1.570796
 
          dummy_0 = (one-am_unst*zet)          ! parentesis arg
-         dummy_1 = dummy_0**0.333333         ! y
-         dummy_11=-0.33333*am_unst*dummy_0**(-0.6666667) ! dy/dzet
-         dummy_2 = 0.33333*(dummy_1**2+dummy_1+one)    ! f
-         dummy_22= 0.3333*dummy_11*(two*dummy_1+one)    ! df/dzet
-         dummy_3 = 0.57735*(two*dummy_1+one) ! g
-         dummy_33= 1.1547*dummy_11        ! dg/dzet
+         dummy_1 = dummy_0**onethird          ! y
+         dummy_11=-onethird*am_unst*dummy_0**(-twothirds) ! dy/dzet
+         dummy_2 = onethird*(dummy_1**2+dummy_1+one)      ! f
+         dummy_22= onethird*dummy_11*(two*dummy_1+one)    ! df/dzet
+         dummy_3 = 0.57735*(two*dummy_1+one)  ! g
+         dummy_33= 1.1547*dummy_11            ! dg/dzet
          dummy_4 = 1.5*log(dummy_2)-1.73205*atan(dummy_3)+1.813799364 !psic
          dummy_44= (1.5/dummy_2)*dummy_22-1.73205*dummy_33/(one+dummy_3**2)! dpsic/dzet
 
@@ -8435,10 +8434,10 @@ SUBROUTINE SCALE_AWARE(dx,pblh,Psig_bl,Psig_shcu)
          dummy_psi = two*log(half*(one+dummy_0))
 
          dummy_0 = (one-ah_unst*zet)         ! parenthesis arg
-         dummy_1 = dummy_0**0.333333         ! y
-         dummy_11=-0.33333*ah_unst*dummy_0**(-0.6666667) ! dy/dzet
-         dummy_2 = 0.33333*(dummy_1**2+dummy_1+one)    ! f
-         dummy_22= 0.3333*dummy_11*(two*dummy_1+one)    ! df/dzet
+         dummy_1 = dummy_0**onethird         ! y
+         dummy_11=-onethird*ah_unst*dummy_0**(-twothirds) ! dy/dzet
+         dummy_2 = onethird*(dummy_1**2+dummy_1+one)      ! f
+         dummy_22= onethird*dummy_11*(two*dummy_1+one)    ! df/dzet
          dummy_3 = 0.57735*(two*dummy_1+one) ! g
          dummy_33= 1.1547*dummy_11           ! dg/dzet
          dummy_4 = 1.5*log(dummy_2)-1.73205*atan(dummy_3)+1.813799364 !psic
@@ -8552,7 +8551,7 @@ END FUNCTION phih
        DO kk = kts,kpbl+3
           !Analytic vertical profile
           zfac(kk) = min(max((one-(zw(kk+1)-zl1)/(zminrad-zl1)),zfmin),one)
-          zfacent(kk) = 10.*MAX((zminrad-zw(kk+1))/zminrad,zero)*(1.-zfac(kk))**3
+          zfacent(kk) = 10.*MAX((zminrad-zw(kk+1))/zminrad,zero)*(one-zfac(kk))**3
 
           !Calculate an eddy diffusivity profile (not used at the moment)
           wscalek2(kk) = (phifac*karman*wm3*(zfac(kk)))**onethird
@@ -8563,7 +8562,7 @@ END FUNCTION phih
           !Calculate TKE production = 2(g/TH)(w'TH'), where w'TH' = A(TH/g)wstar^3/PBLH,
           !A = ent_eff, and wstar is associated with the radiative cooling at top of PBL.
           !An analytic profile controls the magnitude of this TKE prod in the vertical.
-          TKEprodTD(kk)=2.*ent_eff*wm3/MAX(pblh,100.)*zfacent(kk)
+          TKEprodTD(kk)=two*ent_eff*wm3/MAX(pblh,100.)*zfacent(kk)
           TKEprodTD(kk)= MAX(TKEprodTD(kk),zero)
        ENDDO
     ENDIF !end cloud check

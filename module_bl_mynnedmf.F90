@@ -4217,7 +4217,7 @@ END IF
     k=kts
     !rho-weighted (drag in b-vector):
     a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)
-    b(k)=one+dtz(k)*(kmdz(k+1) + rhosfc*ust**2/wspd)*rhoinv(k)     &
+    b(k)=one+dtz(k)*(kmdz(k+1) + rhosfc*ust**2/wspd)*rhoinv(k)    &
         &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff               &
         &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
     c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                            &
@@ -4232,7 +4232,7 @@ END IF
        a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)                           &
          & + half*dtz(k)*rhoinv(k)*s_aw1(k)*onoff                 &
          & + half*dtz(k)*rhoinv(k)*sd_aw1(k)*onoff
-       b(k)=one+dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k)               &
+       b(k)=one+dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k)              &
          & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*onoff    &
          & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))*onoff
        c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                         &
@@ -4282,7 +4282,7 @@ END IF
     ! no flux at the top of the atmosphere
     upcont(kte)=zero
     dncont(kte)=zero
-    ! upcont(1) and dncont(1) are not used so they don't need to be set                                                                                                                              
+    ! upcont(1) and dncont(1) are not used so they don't need to be set
 
     k=kts
     a(1)=zero
@@ -4787,7 +4787,7 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNI .AND. &
    if (bl_mynn_edmf > 1) then
 
       DO k=kts+1,kte-1
-         upcont(k)= s_awqni1(k)- s_aw1(k)*(qni2(k)*upwind+qni2(k-1)*(one-upwind))                                                                                                                 
+         upcont(k)= s_awqni1(k)- s_aw1(k)*(qni2(k)*upwind+qni2(k-1)*(one-upwind))
          dncont(k)=sd_awqni1(k)-sd_aw1(k)*(qni2(k)*upwind+qni2(k-1)*(one-upwind))
       ENDDO
       ! no flux at the top of the atmosphere
@@ -4813,7 +4813,7 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNI .AND. &
       
       k=kts
       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
+      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)        &
       &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
       &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
@@ -4827,7 +4827,7 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNI .AND. &
          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
          & + half*dtz(k)*rhoinv(k)*s_aw1(k)                &
          & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
-         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
+         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)     &
          & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
          & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
@@ -4902,7 +4902,7 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNC .AND. &
     
       k=kts
       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)         &
+      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)        &
       &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
       &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                   &
@@ -4916,7 +4916,7 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QNC .AND. &
          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                  &
          & + half*dtz(k)*rhoinv(k)*s_aw1(k)                &
          & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
-         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)      &
+         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)     &
          & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
          & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                &
@@ -4964,10 +4964,10 @@ IF (FLAG_QNWFA .AND. bl_mynn_mixaerosols > 0) THEN
          upcont(k)= s_awqnwfa1(k)- s_aw1(k)*(qnwfa2(k)*upwind+qnwfa2(k-1)*(one-upwind))
          dncont(k)=sd_awqnwfa1(k)-sd_aw1(k)*(qnwfa2(k)*upwind+qnwfa2(k-1)*(one-upwind))
       ENDDO
-      ! no flux at the top of the atmosphere                                                                                                                                                         
+      ! no flux at the top of the atmosphere
       upcont(kte)=zero
       dncont(kte)=zero
-      ! upcont(1) and dncont(1) are not used so they don't need to be set                                                                                                                            
+      ! upcont(1) and dncont(1) are not used so they don't need to be set
 
       k=kts
       a(1)=zero
@@ -4987,7 +4987,7 @@ IF (FLAG_QNWFA .AND. bl_mynn_mixaerosols > 0) THEN
       
       k=kts
       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)             &
+      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)            &
       &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
       &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
@@ -5001,7 +5001,7 @@ IF (FLAG_QNWFA .AND. bl_mynn_mixaerosols > 0) THEN
          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                      &
          & + half*dtz(k)*rhoinv(k)*s_aw1(k)                    &
          & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
-         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
+         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)         &
          & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))       &
          & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
@@ -5076,7 +5076,7 @@ IF (FLAG_QNIFA .AND. bl_mynn_mixaerosols > 0) THEN
     
       k=kts
       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)             &
+      b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)            &
       &  - half*dtz(k)*rhoinv(k)*s_aw1(k+1)                    &
       &  - half*dtz(k)*rhoinv(k)*sd_aw1(k+1)
       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
@@ -5090,7 +5090,7 @@ IF (FLAG_QNIFA .AND. bl_mynn_mixaerosols > 0) THEN
          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                      &
          & + half*dtz(k)*rhoinv(k)*s_aw1(k)                    &
          & + half*dtz(k)*rhoinv(k)*sd_aw1(k)
-         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
+         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)         &
          & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))       &
          & + half*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
@@ -5162,7 +5162,7 @@ IF (FLAG_QNBCA .AND. bl_mynn_mixaerosols > 0) THEN
    
       k=kts
       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
-      b(k)=one+dtz(k)*(khdz(k) + khdz(k+1))*rhoinv(k)           &
+      b(k)=one+dtz(k)*(khdz(k) + khdz(k+1))*rhoinv(k)          &
       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                       &
       & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
@@ -5171,7 +5171,7 @@ IF (FLAG_QNBCA .AND. bl_mynn_mixaerosols > 0) THEN
       do k=kts+1,kte-1
          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                      &
          & + half*dtz(k)*rhoinv(k)*s_aw1(k)*nonloc
-         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)          &
+         b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)         &
          & + half*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))*nonloc
          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                    &
          & - half*dtz(k)*rhoinv(k)*s_aw1(k+1)*nonloc
@@ -5218,7 +5218,7 @@ IF (FLAG_OZONE) THEN
        d(k)=ozone(k)
     ENDDO
 
-! prescribed value                                                                                                           
+! prescribed value
     a(kte)=zero
     b(kte)=one
     c(kte)=zero
@@ -5379,15 +5379,15 @@ ENDIF
     !===================
     IF (FLAG_QI) THEN
       DO k=kts,kte
-         Dth(k)=(thl(k) + xlvcp/exner(k)*sqc2(k)          &
-           &            + xlscp/exner(k)*(sqi2(k))        & !+sqs2(k)) &
+         Dth(k)=(thl(k) + xlvcp/exner(k)*sqc(k)          &
+           &            + xlscp/exner(k)*(sqi(k))        & !+sqs2(k)) &
            &            - th(k))/delt
          !Dth(k)=(thl(k) + xlvcp/exner(k)*qc_tot1(k)       &
          !  &            + xlscp/exner(k)*qi_tot1(k)       &
          !  &            - th(k))/delt
          !Use form from Tripoli and Cotton (1981) with their
          !suggested min temperature to improve accuracy:
-         !Dth(k)=(thl(k)*(1.+ xlvcp/MAX(tk(k),TKmin)*sqc(k)  &
+         !Dth(k)=(thl(k)*(one+xlvcp/MAX(tk(k),TKmin)*sqc(k)  &
          !  &               + xlscp/MAX(tk(k),TKmin)*sqi(k)) &
          !  &               - th(k))/delt
       ENDDO
@@ -5396,7 +5396,7 @@ ENDIF
          Dth(k)=(thl(k)+xlvcp/exner(k)*sqc2(k) - th(k))/delt
          !Use form from Tripoli and Cotton (1981) with their
          !suggested min temperature to improve accuracy.
-         !Dth(k)=(thl(k)*(1.+ xlvcp/MAX(tk(k),TKmin)*sqc(k))  &
+         !Dth(k)=(thl(k)*(one+xlvcp/MAX(tk(k),TKmin)*sqc(k))  &
          !&               - th(k))/delt
       ENDDO
     ENDIF

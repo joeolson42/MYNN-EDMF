@@ -6444,7 +6444,6 @@ END SUBROUTINE GET_PBLH
  cloud_base  = 9000.0
  do k=1,kte-1
     zagl = zw1(k) + half*dz1(k)
-
     if (zagl > (pblh + 500.)) exit
 
     wpbl = w1(k)
@@ -6456,7 +6455,7 @@ END SUBROUTINE GET_PBLH
 
     !Search for cloud base
     qc_sgs = max(qc1(k), qc_bl1(k))
-    if (qc_sgs> 1E-5 .and. (cldfra_bl1(k) .ge. 0.5) .and. cloud_base == 9000.0) then
+    if ((qc_sgs > 1E-5) .and. (cldfra_bl1(k) .ge. 0.5) .and. cloud_base == 9000.0) then
        cloud_base = zw1(k) !height at interface below cloud mass level
     endif
  enddo
@@ -6495,7 +6494,7 @@ END SUBROUTINE GET_PBLH
        endif
     else
        hux = -0.0005  !allow for smaller superadiabatic layers above the surface
-       dthvdz = (thv1(k)-thv1(k-1))/(0.5*(dz1(k)+dz1(k-1)))
+       dthvdz = (thv1(k)-thv1(k-1))/(half*(dz1(k)+dz1(k-1)))
        if (dthvdz < hux) then
           superadiabatic = .true.
        else
@@ -6532,9 +6531,9 @@ END SUBROUTINE GET_PBLH
  !Note: area fraction (acfac) is modified below
  ! Criteria (5) - function of fltv
  if ((landsea-1.5) .lt. zero) then  !land
-    maxwidth_flx = MAX(MIN(1000.*(0.6*tanh((fltv - 0.040)/0.04) + .5),1000._kind_phys), zero)
+    maxwidth_flx = MAX(MIN(1000.*(0.6*tanh((fltv - 0.040)/0.04) + half),1000._kind_phys), zero)
  else                             !water
-    maxwidth_flx = MAX(MIN(1000.*(0.6*tanh((fltv - 0.007)/0.02) + .5),1000._kind_phys), zero)
+    maxwidth_flx = MAX(MIN(1000.*(0.6*tanh((fltv - 0.007)/0.02) + half),1000._kind_phys), zero)
     !width_flx = MAX(MIN(1000.*(0.6*tanh((fltv - 0.010)/0.025) + .5),1000._kind_phys), zero)
  endif
  maxwidth = MIN(maxwidth_dx, maxwidth_pbl)
@@ -7100,7 +7099,7 @@ END SUBROUTINE GET_PBLH
       
    !Calculate mean updraft properties for output:
    !all edmf_* variables are interpolated plume quantities to mass levels
-   k=kts !at first mass level
+   k=kts !at first mass level, can not interpolate--use first interface values
    do ip=1,nup
       edmf_a1(k)  =edmf_a1(k)  +upa(k+1,ip)
       edmf_w1(k)  =edmf_w1(k)  +upa(k+1,ip)*half*UPW(k+1,ip)
@@ -7110,7 +7109,7 @@ END SUBROUTINE GET_PBLH
       edmf_qc1(k) =edmf_qc1(k) +upa(k+1,ip)*UPQC(k+1,ip)
    enddo
    do ip=1,nup
-      do k=kts+1,ktop_plume(ip)-1  !loop up to ktop-1, then add a ktop section below......********
+      do k=kts+1,ktop_plume(ip)-1  !within the plume, we can interpolate:
          upak        =(upa(k+1,ip)*dzi(k) + upa(k,ip)*dzi(k+1))/(dzi(k+1)+dzi(k))
          edmf_a1(k)  =edmf_a1(k)  +upak
          edmf_w1(k)  =edmf_w1(k)  +upak*(upw(k+1,ip)*dzi(k)  + upw(k,ip)*dzi(k+1))/(dzi(k+1)+dzi(k))
@@ -7125,8 +7124,9 @@ END SUBROUTINE GET_PBLH
          endif
       enddo
    enddo
-   k=ktop_plume(ip)
+   !Now use a single level at the top of the plume so there is no averaging with zeros above:
    do ip=1,nup
+      k=ktop_plume(ip)
       edmf_a1(k)  =edmf_a1(k)  +upa(k,ip)
       edmf_w1(k)  =edmf_w1(k)  +upa(k,ip)*upw(k,ip)
       edmf_qt1(k) =edmf_qt1(k) +upa(k,ip)*upqt(k,ip)
@@ -7135,8 +7135,7 @@ END SUBROUTINE GET_PBLH
       edmf_qc1(k) =edmf_qc1(k) +upa(k,ip)*upqc(k,ip)
    enddo
    do k=kts,kte-1
-      !Note that only edmf_a1 is multiplied by Psig_w. This takes care of the
-      !scale-awareness of the subsidence below:
+      !Note that only edmf_a1 is multiplied by Psig_w. This helps with the scale/regime-awareness.
       if (edmf_a1(k)>0.) then
          edmf_w1(k)  =edmf_w1(k)/edmf_a1(k)
          edmf_qt1(k) =edmf_qt1(k)/edmf_a1(k)

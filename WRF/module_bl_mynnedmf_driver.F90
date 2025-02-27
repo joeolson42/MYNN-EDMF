@@ -88,7 +88,8 @@
 !                  qoz               ,                                                               &
                   rthraten          , pblh              , kpbl               ,                      &
                   cldfra_bl         , qc_bl             , qi_bl              , maxwidth           , &
-                  maxmf             , ztop_plume        , qke                , qke_adv            , &
+                  maxmf             , ztop_plume        , excess_h           , excess_q           , &
+                  qke               , qke_adv           ,                                           &
                   tsq               , qsq               , cov                ,                      &
                   el_pbl            , rublten           , rvblten            , rthblten           , &
                   rqvblten          , rqcblten          , rqiblten           , rqsblten           , &
@@ -248,7 +249,7 @@
        xland,ts,qsfc,ps,ch,hfx,qfx,ust,wspd,znt,                                  &
        uoce,voce
  real(kind_phys), dimension(ims:ime,jms:jme), optional, intent(out) ::            &
-       maxwidth,maxmf,ztop_plume
+       maxwidth,maxmf,ztop_plume,excess_h,excess_q
  real(kind_phys), dimension(ims:ime,jms:jme), intent(out) ::                      &
        pblh
  integer, dimension(ims:ime,jms:jme), intent(out) ::                              &
@@ -260,7 +261,7 @@
  real(kind_phys), dimension(its:ite,kts:kte,jts:jte) :: ozone,rO3blten
  real(kind_phys):: xland1,ts1,qsfc1,ps1,ch1,hfx1,qfx1,ust1,wspd1,                 &
        znt1,uoce1,voce1,pblh1,maxwidth1,maxmf1,ztop_plume1,                       &
-       frp1,emis1
+       frp1,emis1,excess_h1,excess_q1
  integer   :: kpbl1
       
 !ccpp-requirements, but kept local, since WRF doesn't use them
@@ -379,6 +380,8 @@
          maxwidth1      = maxwidth(i,j)
          maxmf1         = maxmf(i,j)
          ztop_plume1    = ztop_plume(i,j)
+         excess_h1      = excess_h(i,j)
+         excess_q1      = excess_q(i,j)
       endif
       !check for unearthly incoming surface fluxes. These values are only surpassed
       !when the model is on the brink of crashing. If these limits are being surpassed,
@@ -561,6 +564,7 @@
             sub_thl1        = sub_thl1      , sub_sqv1    = sub_sqv1      , det_thl1    = det_thl1     , &
             det_sqv1        = det_sqv1      ,                                                            &
             maxwidth        = maxwidth1     , maxmf       = maxmf1        , ztop_plume  = ztop_plume1  , &
+            excess_h        = excess_h1     , excess_q    = excess_q1     ,                              &
             flag_qc         = flag_qc       , flag_qi     = flag_qi       , flag_qs     = flag_qs      , &
             flag_ozone      = flag_ozone    , flag_qnc    = flag_qnc      , flag_qni    = flag_qni     , &
             flag_qnwfa      = flag_qnwfa    , flag_qnifa  = flag_qnifa    , flag_qnbca  = flag_qnbca   , &
@@ -620,6 +624,8 @@
          maxwidth(i,j)    = maxwidth1
          maxmf(i,j)       = maxmf1
          ztop_plume(i,j)  = ztop_plume1
+         excess_h(i,j)    = excess_h1
+         excess_q(i,j)	  = excess_q1
       endif
 
       !- Update 3d tendencies (already converted spec hum back to mixing ratio):

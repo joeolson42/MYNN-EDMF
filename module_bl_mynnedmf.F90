@@ -412,6 +412,7 @@ CONTAINS
              !2d output
              pblh               , kpbl              ,                     &
              maxwidth           , maxmf             , ztop_plume        , &
+             excess_h           , excess_q          ,                     &
              !tke budget arrays
              dqke1              , qwt1              , qshear1           , &
              qbuoy1             , qdiss1            ,                     &
@@ -479,7 +480,7 @@ CONTAINS
  real(kind_phys), intent(in)    :: dx
  real(kind_phys), intent(in)    :: ust,ch,qsfc,ps,wspd,xland
  real(kind_phys), intent(in)    :: ts,znt,hfx,qfx,uoce,voce
- real(kind_phys), intent(inout) :: pblh
+ real(kind_phys), intent(inout) :: pblh,excess_h,excess_q
  real(kind_phys), intent(inout) :: maxmf,maxwidth,ztop_plume
  integer,         intent(in)    :: i,j
  integer,         intent(inout) :: kpbl
@@ -630,6 +631,8 @@ CONTAINS
     ztop_plume   =zero
     maxwidth     =zero
     maxmf        =zero
+    excess_h     =zero
+    excess_q     =zero
     maxKHtopdown =zero
     kzero1       =zero
 
@@ -998,7 +1001,7 @@ CONTAINS
             &FLAG_QNWFA,FLAG_QNIFA,FLAG_QNBCA,        &
             &Psig_shcu,                               &
             &maxwidth,ktop_plume,                     &
-            &maxmf,ztop_plume,                        &
+            &maxmf,ztop_plume,excess_h,excess_q,      &
             &spp_pbl,pattern_spp_pbl1,                &
             &TKEprod_up,el1                           )
     else
@@ -6209,6 +6212,7 @@ END SUBROUTINE GET_PBLH
                  & Psig_shcu,                      &
             ! output info
                  & maxwidth,ktop,maxmf,ztop,       &
+                 & excess_h,excess_q,              &
             ! inputs for stochastic perturbations
                  & spp_pbl,pattern_spp_pbl1,       &
                  & tkeprod_up,el1                  )
@@ -6245,7 +6249,8 @@ END SUBROUTINE GET_PBLH
   real(kind_phys),dimension(kts:kte) :: edmf_th1
  ! output
  integer,         intent(inout) :: ktop
- real(kind_phys), intent(inout) :: maxmf,ztop,maxwidth
+ real(kind_phys), intent(inout) :: maxmf,ztop,maxwidth,            &
+      &excess_h,excess_q
  ! outputs - variables needed for solver: sum ai*rho*wis_awphi
  real(kind_phys),dimension(kts:kte+1), intent(inout) ::            &
       &s_aw1,s_awthl1,s_awqt1,s_awqv1,s_awqc1,s_awqnc1,s_awqni1,   &
@@ -6315,7 +6320,7 @@ END SUBROUTINE GET_PBLH
  ! Varaibles for mass flux cloud fraction
  real(kind_phys),dimension(kts:kte), intent(inout) :: vt1, vq1, sgm1
  real(kind_phys):: sigq,xl,rsl,cpm,a,qmq,Aup,Q1,diffqt,qsat_tk,     &
-         Fng,qww,alpha,beta,bb,f,pt,t,q2p,b9,satvp,rhgrid,          &
+         Fng,qww,alpha,beta,bb,f,pt,t,q2p,b9,satvp,rhgrid,entfac,   &
          cf_strat,qc_strat,cf_mf,qc_mf,pct_mf
  real(kind_phys), parameter :: cf_thresh = 0.5 ! only overwrite stratus CF less than this value
 
@@ -6356,6 +6361,9 @@ END SUBROUTINE GET_PBLH
  real(kind_phys), parameter :: pgfac = 0.00  ! Zhang and Wu showed 0.4 is more appropriate for lower troposphere
  real(kind_phys):: Uk,Ukm1,Vk,Vkm1,dxsa
 
+ ! WA TEST 12/23/24 Vars for PBL-average QKE
+ real(kind_phys):: qkebl
+
  !set for debugging at specific point
  !integer, parameter::idbg = 452, jdbg = 272
       
@@ -6363,7 +6371,9 @@ END SUBROUTINE GET_PBLH
  ktop      =0    !integer
  ztop      =zero
  maxmf     =zero
- maxwidth  =zero 
+ maxwidth  =zero
+ excess_h  =zero
+ excess_q  =zero
  ! Initialize individual updraft properties
  UPW       =zero
  UPTHL     =zero
@@ -6386,7 +6396,7 @@ END SUBROUTINE GET_PBLH
  if ( scalar_opt > 0 ) then
     upscalars(kts:kte+1,1:NUP,1:nscalars)=zero
  endif
- ENT       =0.001
+ ENT       =0.001_kind_phys
  ! Initialize mean updraft properties
  edmf_a1   =zero
  edmf_w1   =zero
@@ -6441,7 +6451,8 @@ END SUBROUTINE GET_PBLH
  ! Taper off MF scheme when significant resolved-scale motions
  ! are present This function needs to be asymetric...
  maxw        = zero
- cloud_base  = 9000.0
+ cloud_base  = 9000.0_kind_phys
+ qkebl       = zero
  do k=1,kte-1
     zagl = zw1(k) + half*dz1(k)
     if (zagl > (pblh + 500.)) exit
@@ -6453,13 +6464,19 @@ END SUBROUTINE GET_PBLH
     !Find highest k-level below 50m AGL
     if (zagl <= 50.)k50=k
 
+    !Establish mean tke in pbl for entrainment
+    if (k <= kpbl) then
+       qkebl = qkebl + qke1(k)
+    endif
+
     !Search for cloud base
     qc_sgs = max(qc1(k), qc_bl1(k))
     if ((qc_sgs > 1E-5) .and. (cldfra_bl1(k) .ge. 0.5) .and. cloud_base == 9000.0) then
        cloud_base = zw1(k) !height at interface below cloud mass level
     endif
  enddo
-
+ qkebl = qkebl / real(kpbl, kind=kind_phys)
+ 
  !do nothing for small w (< 1 m/s), but linearly taper off for w > 1.0 m/s
  maxw = max(zero, maxw - one)
  Psig_w = max(zero, one - maxw)
@@ -6636,17 +6653,18 @@ END SUBROUTINE GET_PBLH
     else
        if ((landsea-1.5).GE.zero) then
           !water: increase factor to compensate for decreased pwmin/pwmax
-          exc_fac = 0.58*4.0
+          !0.58*25 = 14.5
+          exc_fac = 14.5_kind_phys
        else
           !land: no need to increase factor - already sufficiently large superadiabatic layers
-          exc_fac = 0.58
+          exc_fac = 0.58_kind_phys
        endif
     endif
     !decrease excess for large wind speeds
     exc_fac = exc_fac * ac_wsp
 
     !Note: sigmaW is typically about 0.5*wstar
-    sigmaW =csigma*wstar*(z0/pblh)**(onethird)*(one - 0.8*z0/pblh)
+    sigmaW =csigma*wstar*(z0/pblh)**(onethird)*(one - 0.8_kind_phys*z0/pblh)
     sigmaQT=csigma*qstar*(z0/pblh)**(onethird)
     sigmaTH=csigma*thstar*(z0/pblh)**(onethird)
 
@@ -6722,7 +6740,7 @@ END SUBROUTINE GET_PBLH
     enddo
    
     !dxsa is scale-adaptive factor governing the pressure-gradient term of the momentum transport
-    dxsa = one - MIN(MAX((12000.0-dx)/(12000.0-3000.0), zero), one)
+    dxsa = one - MIN(MAX((12000.0_kind_phys-dx)/(12000.0_kind_phys-3000.0_kind_phys), zero), one)
 
     ktop_plume = 0
     ! do integration  updraft
@@ -6734,8 +6752,11 @@ END SUBROUTINE GET_PBLH
           !Entrainment from Tian and Kuang (2016)
           !ENT(k,ip) = 0.35/(MIN(MAX(UPW(K-1,ip),0.75),1.9)*l)
           wmin = 0.3_kind_phys + l*0.0005_kind_phys
-          ENT(k,ip) = 0.33_kind_phys/(MIN(MAX(UPW(k,ip),wmin),one)*l)
-
+!          ENT(k,ip) = 0.33_kind_phys/(MIN(MAX(UPW(k,ip),wmin),one)*l)
+!          ENT(k,ip) = (0.20*sqrt(qkebl))/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
+          entfac = 0.21_kind_phys * min(2.0_kind_phys, max(1.1_kind_phys, sqrt(qkebl)))
+          ENT(k,ip) = entfac/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
+          
           !Entrainment from Negggers (2015, JAMES)
           !ENT(k,ip) = 0.02*l**-0.35 - 0.0009
           !ENT(k,ip) = 0.04*l**-0.50 - 0.0009   !more plume diversity
@@ -6958,6 +6979,8 @@ END SUBROUTINE GET_PBLH
           ENDIF
        ENDIF
        ktop_plume(ip)=k !index where each individual plume stopped rising.
+       excess_h =max(excess_h,exc_heat)
+       excess_q =max(excess_q,exc_moist)
     ENDDO !end plume # loop
  ELSE
     !At least one of the conditions was not met for activating the MF scheme.

@@ -105,7 +105,7 @@
                   bl_mynn_tkeadvect , tke_budget        , bl_mynn_cloudpdf   , bl_mynn_mixlength  , &
                   bl_mynn_closure   , bl_mynn_edmf      , bl_mynn_edmf_mom   , bl_mynn_edmf_tke   , &
                   bl_mynn_output    , bl_mynn_mixscalars, bl_mynn_mixaerosols, bl_mynn_mixnumcon  , &
-                  bl_mynn_cloudmix  , bl_mynn_mixqt                                                 &                  
+                  bl_mynn_cloudmix  , bl_mynn_mixqt     , bl_mynn_edmf_dd                           &
 #if(WRF_CHEM == 1)
                   ,mix_chem         , chem3d            , vd3d               , nchem              , &
                   kdvel             , ndvel             , num_vert_mix                              &
@@ -149,6 +149,7 @@
          bl_mynn_mixlength,                             &
          icloud_bl,                                     &
          bl_mynn_edmf,                                  &
+         bl_mynn_edmf_dd,                               &
          bl_mynn_edmf_mom,                              &
          bl_mynn_edmf_tke,                              &
          bl_mynn_cloudmix,                              &
@@ -581,6 +582,7 @@
             bl_mynn_mixlength  = bl_mynn_mixlength    , &
             closure            = bl_mynn_closure      , &
             bl_mynn_edmf       = bl_mynn_edmf         , &
+            bl_mynn_edmf_dd    = bl_mynn_edmf_dd      , &
             bl_mynn_edmf_mom   = bl_mynn_edmf_mom     , &
             bl_mynn_edmf_tke   = bl_mynn_edmf_tke     , &
             bl_mynn_mixscalars = bl_mynn_mixscalars   , &

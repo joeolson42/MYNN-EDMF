@@ -330,12 +330,6 @@ MODULE module_bl_mynnedmf
 !!on the cloud PDF and mass-flux scheme, using LES-derived similarity function.
  real(kind_phys), parameter :: scaleaware=1.
 
-!>Of the following the options, use one OR the other, not both.
-!>Adding top-down diffusion driven by cloud-top radiative cooling
- integer, parameter :: bl_mynn_topdown = 0
-!>Option to activate downdrafts, from Elynn Wu (0: deactive, 1: active)
- integer, parameter :: bl_mynn_edmf_dd = 0
-
 !>Option to control implicit/explicit mass-flux tendencies when
 !>bl_mynn_edmf = 2  (0: mass flux inactive, 1: implicit, 2: explicit)
  real(kind_phys), parameter :: upwind = 1.0! upwind=1.0: use upwind approximation for mass-flux calculation
@@ -424,6 +418,7 @@ CONTAINS
              bl_mynn_edmf       , bl_mynn_edmf_mom  , bl_mynn_edmf_tke  , &
              bl_mynn_mixscalars , bl_mynn_mixaerosols,bl_mynn_mixnumcon , &
              bl_mynn_output     , bl_mynn_cloudmix  , bl_mynn_mixqt     , &
+             bl_mynn_edmf_dd    ,                                         &
              !3d emdf output
              edmf_a1            , edmf_w1           , edmf_qt1          , &
              edmf_thl1          , edmf_ent1         , edmf_qc1          , &
@@ -445,6 +440,7 @@ CONTAINS
  integer, intent(in) :: bl_mynn_cloudpdf
  integer, intent(in) :: bl_mynn_mixlength
  integer, intent(in) :: bl_mynn_edmf
+ integer, intent(in) :: bl_mynn_edmf_dd
  logical, intent(in) :: bl_mynn_tkeadvect
  integer, intent(in) :: bl_mynn_edmf_mom
  integer, intent(in) :: bl_mynn_edmf_tke
@@ -943,21 +939,8 @@ CONTAINS
          &vt1, vq1, th1, sgm1,                        &
          &spp_pbl, pattern_spp_pbl1                   )
 
-!>  - Add TKE source driven by cloud top cooling
-!!  Calculate the buoyancy production of TKE from cloud-top cooling when
-!! \p bl_mynn_topdown =1.
-    if (bl_mynn_topdown.eq.1) then
-       call topdown_cloudrad(kts,kte,dz1,zw1,fltv,     &
-            &xland,kpbl,PBLH,                          &
-            &sqc1,sqi1,sqw1,thl1,th1,ex1,p1,rho1,thv1, &
-            &cldfra_bl1,rthraten1,                     &
-            &maxKHtopdown,KHtopdown,TKEprod_dn         )
-    else
-       maxKHtopdown = zero
-       KHtopdown    = zero
-       TKEprod_dn   = zero
-    endif
 
+    TKEprod_up = zero
     if (bl_mynn_edmf > 0) then
        !PRINT*,"Calling DMP Mass-Flux"
        call DMP_mf(i,j,                               &
@@ -1004,10 +987,15 @@ CONTAINS
             &maxmf,ztop_plume,excess_h,excess_q,      &
             &spp_pbl,pattern_spp_pbl1,                &
             &TKEprod_up,el1                           )
-    else
-       TKEprod_up = zero
     endif
 
+    !> Options for downdrafts or analytical top-down method:
+    !!  - Add TKE source driven by cloud top cooling and
+    !!  calculate the buoyancy production of TKE from cloud-top cooling
+    !!  for downdraft or analytic options. 
+    tkeprod_dn   = zero
+    maxKHtopdown = zero
+    KHtopdown    = zero
     if (bl_mynn_edmf_dd == 1) then
        call ddmp_mf(kts,kte,delt,dx,zw1,dz1,p1,       &
             &u1,v1,th1,thl1,thv1,tk1,                 &
@@ -1028,8 +1016,12 @@ CONTAINS
             &sd_awqke1,                               &
             &tkeprod_dn,el1,                          &
             &rthraten1                                )
-    else
-       tkeprod_dn = zero
+    elseif (bl_mynn_edmf_dd == 2) then
+       call topdown_cloudrad(kts,kte,dz1,zw1,fltv,    &
+            &xland,kpbl,PBLH,                         &
+            &sqc1,sqi1,sqw1,thl1,th1,ex1,p1,rho1,thv1,&
+            &cldfra_bl1,rthraten1,                    &
+            &maxKHtopdown,KHtopdown,TKEprod_dn        )
     endif
 
     !Capability to substep the eddy-diffusivity portion

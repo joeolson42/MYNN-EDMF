@@ -6,22 +6,15 @@
 !Define Model-specific constants/parameters.
 !This module will be used at the initialization stage
 !where all model-specific constants are read and saved into
-!memory. This module is then used again in the MYNN-EDMF. All
-!MYNN-specific constants are declared globally in the main
-!module (module_bl_mynnedmf) further below:
+!memory. This module is used in the MYNN-EDMF scheme and driver.
+!All MYNN-specific constants are declared globally in the main
+!module (module_bl_mynnedmf.F90) further below:
 !------------------------------------------
 !
-! The following 5-6 lines are the only lines in this file that are not
-! universal for all dycores... Any ideas how to universalize it?
 ! For MPAS:
   use mpas_kind_types, only: kind_phys => RKIND
-  !use ccpp_kinds, only: kind_phys
-! For CCPP:
-!  use ccpp_kind_types, only : kind_phys
-! For WRF
-!  use module_gfs_machine,  only : kind_phys
 
-!WRF CONSTANTS
+!MPAS-regulated constants:
  use mpas_atmphys_constants, only:           &
     & karman, grav => gravity, p1000mb => P0,&
     & cp, r_d, r_v, rcp, xlv, xlf, xls,      &
@@ -51,10 +44,6 @@
 ! real:: rvovrd       != r_v/r_d != 1.608
 
 ! Specified locally
-! Define single & double precision
-! integer, parameter :: sp = selected_real_kind(6, 37)
-! integer, parameter :: dp = selected_real_kind(15, 307)
-! integer, parameter :: kind_phys = sp
  real(kind_phys),parameter:: zero   = 0.0
  real(kind_phys),parameter:: half   = 0.5
  real(kind_phys),parameter:: one    = 1.0
@@ -67,7 +56,7 @@
 ! real(kind_phys),parameter:: svp1  = 0.6112 !(kPa)
 ! real(kind_phys),parameter:: svp2  = 17.67  !(dimensionless)
 ! real(kind_phys),parameter:: svp3  = 29.65  !(K)
- real(kind_phys),parameter:: tice  = 240.0  !-33 (C), temp at saturation w.r.t. ice
+ real(kind_phys),parameter:: tice  = 238.0  !-35 (C), temp at saturation w.r.t. ice
 ! real(kind_phys),parameter:: grav  = g
 ! real(kind_phys),parameter:: t0c   = svpt0        != 273.15
 
@@ -80,23 +69,12 @@
  real(kind_phys),parameter:: xlscp  = (xlv+xlf)/cp
  real(kind_phys),parameter:: xlvcp  = xlv/cp
  real(kind_phys),parameter:: g_inv  = 1./grav
-
+!thresholds for aerosol mixing. Needed until the surface fluxes are updated.
  real(kind_phys), parameter :: wfa_max = 800e12  !kg-1
  real(kind_phys), parameter :: wfa_min = 1e6     !kg-1
  real(kind_phys), parameter :: ifa_max = 500e6   !kg-1
  real(kind_phys), parameter :: ifa_min = 0.0     !kg-1
  real(kind_phys), parameter :: wfa_ht  = 2000.   !meters
  real(kind_phys), parameter :: ifa_ht  = 10000.  !meters 
-
-! grav   = g
-! t0c    = svpt0        != 273.15
-! ep_3   = 1.-ep_2      != 0.378                                                                                   
-! gtr    = grav/tref
-! rk     = cp/r_d
-! tv0    = p608*tref
-! tv1    = (1.+p608)*tref
-! xlscp  = (xlv+xlf)/cp
-! xlvcp  = xlv/cp
-! g_inv  = 1./grav
 
  end module module_bl_mynnedmf_common

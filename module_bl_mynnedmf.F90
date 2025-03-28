@@ -348,7 +348,7 @@ MODULE module_bl_mynnedmf
 
 !Option to switch flux-profile relationship for surface (from Puhales et al. 2020)
 !0: use original Dyer-Hicks, 1: use Cheng-Brustaert and Blended COARE
- integer, parameter :: bl_mynn_stfunc = 1
+ integer, parameter :: bl_mynn_stfunc = 0
 
 !option to print out more stuff for debugging purposes
  logical, parameter :: debug_code = .false.
@@ -883,7 +883,7 @@ CONTAINS
     endif
 
     sqcg= zero   !ill-defined variable; qcg has been removed
-    cpm=cp*(one + 0.84*max(sqv1(kts),1e-8))
+    cpm=cp*(one + 0.84_kind_phys*max(sqv1(kts),1e-8_kind_phys))
     exnerg=(ps/p1000mb)**rcp
 
     !-----------------------------------------------------
@@ -903,20 +903,34 @@ CONTAINS
     fltv=flt + flqv*p608*th_sfc      !! Virtual temperature flux
 
     ! Update 1/L using updated sfc heat flux and friction velocity
-    rmol = -karman*gtr*fltv/max(ust**3,1.0e-6_kind_phys)
+    rmol= -karman*gtr*fltv/max(ust**3,1.0e-6_kind_phys)
     zet = half*dz1(kts)*rmol
-    zet = max(zet, -20._kind_phys)
-    zet = min(zet,  20._kind_phys)
+    zet = max(zet, -10._kind_phys)
+    zet = min(zet,  10._kind_phys)
     !if(i.eq.idbg)print*,"updated z/L=",zet
     if (bl_mynn_stfunc == 0) then
        !Original Kansas-type stability functions
-       if ( zet >= zero ) then
-          pmz = one + (cphm_st-one) * zet
-          phh = one +  cphh_st      * zet
-       else
-          pmz = one/    (one-cphm_unst*zet)**0.25 - zet
-          phh = one/sqrt(one-cphh_unst*zet)
-       end if
+       if ((xland-1.5) .ge. zero) then       ! WATER
+          if ( zet >= zero ) then
+             !pmz = one + (cphm_st-one) * zet
+             pmz = 0.8_kind_phys + 3.0_kind_phys * zet
+             phh = one +  cphh_st * zet
+          else
+             !pmz = one/(one-cphm_unst*zet)**0.25 - zet
+             pmz = 0.8_kind_phys/(one - 20.0*zet)**0.25 - zet
+             phh = one/sqrt(one-cphh_unst*zet)
+          end if
+       else                                  ! LAND
+          if ( zet >= zero ) then
+             !pmz = one + (cphm_st-one) * zet
+             pmz = 0.92_kind_phys + 3.0_kind_phys * zet
+             phh = one + cphh_st       * zet
+          else
+             !pmz = one/(one-cphm_unst*zet)**0.25 - zet
+             pmz = 0.92_kind_phys/(one-cphm_unst*zet)**0.25 - zet
+             phh = one/sqrt(one-cphh_unst*zet)
+          end if
+       endif
     else
        !Updated stability functions (Puhales, 2020)
        phi_m = phim(zet)
@@ -1076,13 +1090,13 @@ CONTAINS
     if (dheat_opt > 0) then
        do k=kts,kte-1
           ! Set max dissipative heating rate to 7.2 K per hour
-          diss_heat1(k) = MIN(MAX(1.0*(qke1(k)**1.5)/(b1*MAX(half*(el1(k)+el1(k+1)),one))/cp, 0.0),0.002)
+          diss_heat1(k) = MIN(MAX((qke1(k)**1.5)/(b1*MAX(half*(el1(k)+el1(k+1)),one))/cp, zero),0.002)
           ! Limit heating above 100 mb:
           diss_heat1(k) = diss_heat1(k) * exp(-10000./MAX(p1(k),one)) 
        enddo
-       diss_heat1(kte) = 0.
+       diss_heat1(kte) = zero
     else
-       diss_heat1 = 0.
+       diss_heat1 = zero
     endif
 
 !>  - Call mynn_tendencies() to solve for tendencies of 
@@ -2514,7 +2528,7 @@ CONTAINS
     real(kind_phys), dimension(kts:kte)           :: pattern_spp_pbl1
     real(kind_phys):: shb, Prlim
     real(kind_phys), parameter :: Prlimit_fre = 6.0 !Pr limit in free troposphere
-    real(kind_phys), parameter :: Prlimit_sfc = 5.0 !Pr limit at the surface
+    real(kind_phys), parameter :: Prlimit_sfc = 4.0 !Pr limit at the surface
 
 !
 !    tv0 = 0.61*tref

@@ -692,7 +692,6 @@ CONTAINS
 
        zw1(kts)=zero
        do k=kts,kte
-          thv1(k)=th1(k)*(one+p608*sqv1(k))
           !keep snow out for now - increases ceiling bias
           sqw1(k)=sqv1(k)+sqc1(k)+sqi1(k)!+sqs1(k)
           thl1(k)=th1(k) - xlvcp/ex1(k)*sqc1(k) &
@@ -702,6 +701,7 @@ CONTAINS
           !thl1(k)=th1(k)*(1.- xlvcp/MAX(tk1(k),TKmin)*sqc1(k) &
           !    &             - xlscp/MAX(tk1(k),TKmin)*sqi1(k))
           thlv1(k)=thl1(k)*(one+p608*sqv1(k))
+          thv1(k)=th1(k)*(one+p608*sqv1(k) - (sqc1(k)+sqi(k)))
           zw1(k+1)=zw1(k)+dz1(k)
        enddo
 
@@ -710,7 +710,7 @@ CONTAINS
           !simple PBLH form of Koracin and Berkowicz (1988, BLM)
           !to linearly taper off tke towards top of PBL.
           do k=kts,kte
-             qke1(k)=5.*ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
+             qke1(k)=half*ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
           enddo
        endif
 
@@ -864,7 +864,7 @@ CONTAINS
        !suggested min temperature to improve accuracy.
        !thl1(k)=th1(i,k)*(one- xlvcp/MAX(tk1(k),TKmin)*sqc1(k) &
        !    &               - xlscp/MAX(tk1(k),TKmin)*sqi1(k))
-       thv1(k)=th1(k)*(one+p608*sqv1(k))
+       thv1(k)=th1(k)*(one+p608*sqv1(k) - (sqc1(k)+sqi1(k)))
     enddo ! end k
 
 !>  - Call get_pblh() to calculate the hybrid \f$\theta_{v}-TKE\f$
@@ -1047,10 +1047,11 @@ CONTAINS
        qc_tot1(k) =max(qc_bl1(k),sqc1(k))
        qi_tot1(k) =max(qi_bl1(k),sqi1(k)+sqs1(k))
        thlv1(k)   =(th1(k) - xlvcp/ex1(k)*qc_tot1(k)  &
-                &          - xlscp/ex1(k)*qi_tot1(k)) &
-                &          * (one+p608*sqv1(k))
+            &              - xlscp/ex1(k)*qi_tot1(k)) &
+            &              * (one+p608*sqv1(k))
        thl_tot1(k)=th1(k)  - xlvcp/ex1(k)*qc_tot1(k)  &
-                &          - xlscp/ex1(k)*qi_tot1(k)
+            &              - xlscp/ex1(k)*qi_tot1(k)
+       thv1(k)    =th1(k)*(one+p608*sqv1(k) - (qc_tot1(k)+qi_tot1(k)))
     enddo
 
     call mym_turbulence(                                 &
@@ -1571,16 +1572,16 @@ CONTAINS
 !    gtr = 9.81/tref
 !
 !intialize output
-    dtl(kts)=0.0
-    dqw(kts)=0.0
-    dtv(kts)=0.0
-    gm(kts)=0.0
-    gh(kts)=0.0
-    sm(kts)=0.0
-    sh(kts)=0.0
+    dtl(kts)=zero
+    dqw(kts)=zero
+    dtv(kts)=zero
+    gm(kts)=zero
+    gh(kts)=zero
+    sm(kts)=zero
+    sh(kts)=zero
 
     do k = kts+1,kte
-       dzk = 0.5  *( dz(k)+dz(k-1) )
+       dzk = half *( dz(k)+dz(k-1) )
        afk = dz(k)/( dz(k)+dz(k-1) )
        abk = one -afk
        duz = ( u(k)-u(k-1) )**2 +( v(k)-v(k-1) )**2
@@ -1594,8 +1595,8 @@ CONTAINS
           !use the buoyancy flux functions
           dtq =  vtt*dtz +vqq*dqz
        else
-          !alternatively, use theta-l-v with the SGS clouds
-          dtq = ( thlv(k)-thlv(k-1) )/( dzk )
+          !alternatively, use theta-v or theta-l-v with the SGS clouds
+          dtq = ( thv(k)-thv(k-1) )/( dzk )
        endif
        dtl(k) =  dtz
        dqw(k) =  dqz
@@ -1609,9 +1610,9 @@ CONTAINS
 
        !a2fac is needed for the Canuto/Kitamura mod
        if (CKmod .eq. 1) then
-          a2fac = 1./(1. + MAX(ri,0.0))
+          a2fac = one/(one + MAX(ri,zero))
        else
-          a2fac = 1.
+          a2fac = one
        endif
 
        rfc = g1/( g1+g2 )
@@ -1623,7 +1624,7 @@ CONTAINS
        smc = a1 /(a2*a2fac)*  f1/f2
        shc = 3.0*(a2*a2fac)*( g1+g2 )
 
-       ri1 = 0.5/smc
+       ri1 = half/smc
        ri2 = rf1*smc
        ri3 = 4.0*rf2*smc -2.0*ri2
        ri4 = ri2**2

@@ -710,7 +710,7 @@ CONTAINS
           !simple PBLH form of Koracin and Berkowicz (1988, BLM)
           !to linearly taper off tke towards top of PBL.
           do k=kts,kte
-             qke1(k)=half*ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
+             qke1(k)=5.0 * ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
           enddo
        endif
 

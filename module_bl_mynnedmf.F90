@@ -701,7 +701,7 @@ CONTAINS
           !thl1(k)=th1(k)*(1.- xlvcp/MAX(tk1(k),TKmin)*sqc1(k) &
           !    &             - xlscp/MAX(tk1(k),TKmin)*sqi1(k))
           thlv1(k)=thl1(k)*(one+p608*sqv1(k))
-          thv1(k)=th1(k)*(one+p608*sqv1(k) - (sqc1(k)+sqi(k)))
+          thv1(k)=th1(k)*(one+p608*sqv1(k) - (sqc1(k)+sqi1(k)))
           zw1(k+1)=zw1(k)+dz1(k)
        enddo
 

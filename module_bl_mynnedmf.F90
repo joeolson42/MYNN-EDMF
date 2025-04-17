@@ -1824,7 +1824,7 @@ CONTAINS
         wt_u2 = one - 0.4*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.6
         cns   = 3.5
         alp1  = 0.23
-        alp2  = 0.25 !was 0.30
+        alp2  = 0.3
         alp3  = 2.5 * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
         alp4  = 15.0
         alp5  = 0.3
@@ -1872,7 +1872,7 @@ CONTAINS
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt + ( vq(kts)+tv0 )*flq
         vflx= fltv
-        vsc = ( gtr*elt*MAX( vflx, zero ) )**onethird
+        vsc = ( gtr*elt*MAX( vflx-0.015, zero ) )**onethird
 
         !   **  Strictly, el(i,j,1) is not zero.  **
         el(kts) = zero
@@ -2566,7 +2566,7 @@ CONTAINS
 !
 
     DO k = kts+1,kte
-       dzk = 0.5  *( dz(k)+dz(k-1) )
+       dzk = half *( dz(k)+dz(k-1) )
        afk = dz(k)/( dz(k)+dz(k-1) )
        abk = one -afk
        elsq = el (k)**2
@@ -6117,6 +6117,10 @@ if (stable_method == 0) then
    if (maxqke <= TKEeps) PBLH_STABLE = pblh
 else
    pblh_stable = max(ust*700._kind_phys, 10._kind_phys)
+   !Even though this estimate will dominate in stable conditions, it should
+   !be liberally bounded:
+   pblh_stable = max(pblh_stable, pblh-sbl_lim)
+   pblh_stable = min(pblh_stable, pblh+sbl_lim)
 endif
 
 !blend the stable and unstable pblh heights
@@ -6643,7 +6647,8 @@ END SUBROUTINE GET_PBLH
        if ((landsea-1.5).GE.zero) then
           !water: increase factor to compensate for decreased pwmin/pwmax
           !0.58*25 = 14.5
-          exc_fac = 14.5_kind_phys
+          !0.58*20 = 11.6
+          exc_fac = 11.6_kind_phys
        else
           !land: no need to increase factor - already sufficiently large superadiabatic layers
           exc_fac = 0.58_kind_phys
@@ -6744,7 +6749,7 @@ END SUBROUTINE GET_PBLH
           wmin   = 0.3_kind_phys + l*0.0005_kind_phys
 !          ENT(k,ip) = 0.33_kind_phys/(MIN(MAX(UPW(k,ip),wmin),one)*l)
 !          ENT(k,ip) = (0.20*sqrt(qkebl))/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
-          entfac = 0.21_kind_phys * min(1.64_kind_phys, max(1.1_kind_phys, sqrt(qkebl)))
+          entfac = 0.21_kind_phys * min(1.64_kind_phys, max(1.2_kind_phys, sqrt(qkebl)))
           wt2    = min(one, max(zero, zagl - pblh)/500.) !0 in pbl, 1 aloft
           entfac = entfac*(one-wt2) + wt2*0.33_kind_phys
           ENT(k,ip) = entfac/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
@@ -7556,7 +7561,7 @@ real(kind_phys):: diff,exn,t,th,qs,qx,qxold,frac_ice,frac_liq,thvin
      qs=qsat_blend(t,p)
      qxold=qc+qi
      qx=qc+qi
-     qx=0.5*qx + 0.5*max((qt-qs),0.)
+     qx=half*qx + half*max((qt-qs),zero)
      qc=frac_liq*qx
      qi=frac_ice*qx
      if (abs(qx-qxold)<diff) exit
@@ -7564,14 +7569,14 @@ real(kind_phys):: diff,exn,t,th,qs,qx,qxold,frac_ice,frac_liq,thvin
 
   t=exn*thl + xlvcp*qc + xlscp*qi
   qs=qsat_blend(t,p)
-  qx=max(qt-qs,0.)
+  qx=max(qt-qs,zero)
   qc=frac_liq*qx
   qi=frac_ice*qx
 
   !thv=(thl+xlv/cp*qc).*(1+(1-rvovrd)*(qt-qc)-qc)
 !was this: thv=(thl+xlvcp*qc)*(1.+qt*(rvovrd-1.)-rvovrd*qc)
   !thv=(thl + xlvcp*qc + xlscp*qi)*(1. + qt*(rvovrd-1.)-rvovrd*qc)
-  thv=(thl + xlvcp*qc + xlscp*qi)*(1. + p608*(qt-qx))
+  thv=(thl + xlvcp*qc + xlscp*qi)*(one + p608*(qt-qx))
 
 !  if (qc > zero) then
 !    print*,"edmf sat, p:",p," iterations:",ni

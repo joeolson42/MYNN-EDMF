@@ -913,21 +913,21 @@ CONTAINS
        if ((xland-1.5) .ge. zero) then       ! WATER
           if ( zet >= zero ) then
              !pmz = one + (cphm_st-one) * zet
-             pmz = 0.8_kind_phys + 3.0_kind_phys * zet
+             pmz = 0.9_kind_phys + 3.5_kind_phys * zet
              phh = one +  cphh_st * zet
           else
              !pmz = one/(one-cphm_unst*zet)**0.25 - zet
-             pmz = 0.8_kind_phys/(one - 20.0*zet)**0.25 - zet
+             pmz = 0.9_kind_phys/(one - 18.0*zet)**0.25 - zet
              phh = one/sqrt(one-cphh_unst*zet)
           end if
        else                                  ! LAND
           if ( zet >= zero ) then
              !pmz = one + (cphm_st-one) * zet
-             pmz = 0.92_kind_phys + 3.0_kind_phys * zet
+             pmz = 0.95_kind_phys + 3.5_kind_phys * zet
              phh = one + cphh_st       * zet
           else
              !pmz = one/(one-cphm_unst*zet)**0.25 - zet
-             pmz = 0.92_kind_phys/(one-cphm_unst*zet)**0.25 - zet
+             pmz = 0.95_kind_phys/(one-cphm_unst*zet)**0.25 - zet
              phh = one/sqrt(one-cphh_unst*zet)
           end if
        endif
@@ -1654,9 +1654,9 @@ CONTAINS
 !     Output variables:   see subroutine mym_initialize
 !
 !     Work arrays:
-!       elt(nx,ny)      : Length scale depending on the PBL depth    (m)
-!       vsc(nx,ny)      : Velocity scale q_c                       (m/s)
-!                         at first, used for computing elt
+!       elt(single point): Length scale depending on the PBL depth    (m)
+!       vsc(single point): Velocity scale q_c                       (m/s)
+!                          at first, used for computing elt
 !
 !     NOTE: the mixing lengths are meant to be calculated at the full-
 !           sigmal levels (or interfaces beween the model layers).
@@ -1819,16 +1819,16 @@ CONTAINS
 
         !wt_u* are for hurricane tuning, meant to reduce diffusion in hurricanes
         ugrid = sqrt(u1(kts)**2 + v1(kts)**2)
-        uonset= 20.
+        uonset= 20._kind_phys
         wt_u1 = one - 0.2*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.8
         wt_u2 = one - 0.4*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.6
-        cns   = 3.5
-        alp1  = 0.23
-        alp2  = 0.3
-        alp3  = 2.5 * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
-        alp4  = 15.0
-        alp5  = 0.3
-        alp6  = 50.
+        cns   = 3.5_kind_phys
+        alp1  = 0.23_kind_phys
+        alp2  = 0.3_kind_phys
+        alp3  = 2.5_kind_phys * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
+        alp4  = 15.0_kind_phys
+        alp5  = 0.3_kind_phys
+        alp6  = 50._kind_phys
 
         ! Impose limits on the height integration for elt and the transition layer depth
         pblh2= max(pblh,300.) !minpblh)
@@ -1844,12 +1844,12 @@ CONTAINS
            afk      = dz(k)/( dz(k)+dz(k-1) )
            abk      = one -afk
            qkw(k)   = sqrt(max(qke(k)*abk+qke(k-1)*afk, qkemin))
-           qtke(k)  = max(half*(qkw(k)**2), 0.005) ! q -> TKE
+           qtke(k)  = max(half*(qkw(k)**2), 0.005_kind_phys) ! q -> TKE
            thetaw(k)= theta(k)*abk + theta(k-1)*afk
         END DO
 
-        elt = 1.0e-5
-        vsc = 1.0e-5
+        elt = 1.0e-5_kind_phys
+        vsc = 1.0e-5_kind_phys
 
         !   **  Strictly, zwk*h(i,j) -> ( zwk*h(i,j)+z0 )  **
         k   = kts+1
@@ -1871,8 +1871,8 @@ CONTAINS
         elt = MIN( MAX( alp1*elt/vsc, 8.), elt_max)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt + ( vq(kts)+tv0 )*flq
-        vflx= fltv
-        vsc = ( gtr*elt*MAX( vflx-0.015, zero ) )**onethird
+        vflx= fltv-0.008_kind_phys
+        vsc = ( gtr*elt*MAX( vflx, zero ) )**onethird
 
         !   **  Strictly, el(i,j,1) is not zero.  **
         el(kts) = zero

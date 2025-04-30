@@ -51,9 +51,7 @@
                   bl_mynn_edmf_tke  , bl_mynn_output    , bl_mynn_mixscalars , bl_mynn_mixaerosols, &
                   bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      ,                      &
                   errmsg            , errflg                                                        &
-!#if(WRF_CHEM == 1)
                  ,mix_chem, nchem, ndvel, chem3d, settle3d, vd3d, frp_mean     , emis_ant_no        &
-!#endif
                )
 
 !=================================================================================================================
@@ -232,7 +230,6 @@
     qbuoy,       &!
     qdiss         !
 
-!#if(WRF_CHEM == 1)
 !--- input arguments for PBL and free-tropospheric mixing of chemical species:
  logical,intent(in):: mix_chem
  integer,intent(in):: nchem,ndvel
@@ -244,14 +241,6 @@
     rrfs_sd    =.false.,  &
     smoke_dbg  =.false.,  &
     enh_mix    =.false.
-!#else
-! logical, parameter :: &
-!    mix_chem   =.false.,  &
-!    enh_mix    =.false.,  &
-!    rrfs_sd    =.false.,  &
-!    smoke_dbg  =.false.
-! integer, parameter :: nchem=2, ndvel=2, kdvel=1, num_vert_mix = 1
-!#endif
  real(kind=kind_phys):: frp_v,emisant_no_v
  real(kind=kind_phys),dimension(ndvel):: vd_v
  real(kind=kind_phys),dimension(kts:kte,nchem):: chem_v,settle_v
@@ -441,7 +430,6 @@
        sm1(k)     = sm3d(i,k,j)
     enddo
 
-!#if(WRF_CHEM == 1)
     do ic = 1,nchem
        do k = kts,kte
           chem_v(k,ic)   = chem3d(i,k,j,ic)
@@ -453,12 +441,6 @@
     enddo
     frp_v        = frp_mean(i,j)
     emisant_no_v = emis_ant_no(i,j)
-!#else
-!    chem1       = 0.0
-!    vd1         = 0.0
-!    frp1        = 0.0
-!    emisant_no1 = 0.0
-!#endif
     scalars     = 0.0
 
     do k = kts,kte
@@ -509,12 +491,10 @@
             flag_ozone      = f_qoz         , flag_qnc    = f_nc          , flag_qni    = f_ni         , &
             flag_qnwfa      = f_nwfa        , flag_qnifa  = f_nifa        , flag_qnbca  = f_nbca       , &
             pattern_spp_pbl1= pattern_spp1  ,                                                            &
-!#if(WRF_CHEM == 1)
             mix_chem        = mix_chem      , enh_mix     = enh_mix       , rrfs_sd     = rrfs_sd      , &
             smoke_dbg       = smoke_dbg     , nchem       = nchem         ,                              &
             ndvel           = ndvel         , chem_v      = chem_v        , emis_ant_no = emisant_no_v , &
             frp             = frp_v         , vdep        = vd_v          , settle_v    = settle_v     , &
-!#endif
             nscalars        = nscalars      , scalars     = scalars       ,                              &
             bl_mynn_tkeadvect  = bl_mynn_tkeadvect    , &
             tke_budget         = bl_mynn_tkebudget    , &
@@ -649,7 +629,6 @@
        enddo
     endif
 
-!#if (WRF_CHEM == 1)
     if (mix_chem) then
        do ic = 1,nchem
           do k = kts,kte
@@ -657,7 +636,6 @@
           enddo
        enddo
     endif
-!#endif
 
  enddo !i
  enddo !j

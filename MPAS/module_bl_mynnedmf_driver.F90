@@ -234,9 +234,9 @@
  logical,intent(in):: mix_chem
  integer,intent(in):: nchem,ndvel
 
- real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme):: frp_mean,emis_ant_no
- real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme,ndvel):: vd3d
- real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme,nchem):: chem3d,settle3d
+ real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme),optional:: frp_mean,emis_ant_no
+ real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme,ndvel),optional:: vd3d
+ real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme,nchem),optional:: chem3d,settle3d
  logical, parameter :: &
     rrfs_sd    =.false.,  &
     smoke_dbg  =.false.,  &

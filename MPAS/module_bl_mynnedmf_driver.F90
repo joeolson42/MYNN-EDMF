@@ -241,9 +241,9 @@
     rrfs_sd    =.false.,  &
     smoke_dbg  =.false.,  &
     enh_mix    =.false.
- real(kind=kind_phys):: frp_v,emisant_no_v
- real(kind=kind_phys),dimension(ndvel):: vd_v
- real(kind=kind_phys),dimension(kts:kte,nchem):: chem_v,settle_v
+ real(kind=kind_phys):: frp1,emisant_no1
+ real(kind=kind_phys),dimension(ndvel):: vd1
+ real(kind=kind_phys),dimension(kts:kte,nchem):: chem1,settle1
 !generic scalar array support
  integer, parameter :: nscalars=1
  real(kind=kind_phys),dimension(kts:kte,nscalars):: scalars
@@ -430,17 +430,20 @@
        sm1(k)     = sm3d(i,k,j)
     enddo
 
-    do ic = 1,nchem
-       do k = kts,kte
-          chem_v(k,ic)   = chem3d(i,k,j,ic)
-          settle_v(k,ic) = settle3d(i,k,j,ic)
+    if(present(chem3d).and. present(settle3d) .and. present(vd3d) .and. &
+       present(frp_mean) .and. present(emis_ant_no)) then
+       do ic = 1,nchem
+         do k = kts,kte
+            chem1(k,ic)   = chem3d(i,k,j,ic)
+            settle1(k,ic) = settle3d(i,k,j,ic)
+         enddo
        enddo
-    enddo
-    do ic = 1,ndvel
-       vd_v(ic) = vd3d(i,j,ic)
-    enddo
-    frp_v        = frp_mean(i,j)
-    emisant_no_v = emis_ant_no(i,j)
+       do ic = 1,ndvel
+          vd1(ic) = vd3d(i,j,ic)
+       enddo
+       frp1        = frp_mean(i,j)
+       emisant_no1 = emis_ant_no(i,j)
+    endif
     scalars     = 0.0
 
     do k = kts,kte
@@ -493,8 +496,8 @@
             pattern_spp_pbl1= pattern_spp1  ,                                                            &
             mix_chem        = mix_chem      , enh_mix     = enh_mix       , rrfs_sd     = rrfs_sd      , &
             smoke_dbg       = smoke_dbg     , nchem       = nchem         ,                              &
-            ndvel           = ndvel         , chem_v      = chem_v        , emis_ant_no = emisant_no_v , &
-            frp             = frp_v         , vdep        = vd_v          , settle_v    = settle_v     , &
+            ndvel           = ndvel         , chem1       = chem1         , emis_ant_no = emisant_no1  , &
+            frp             = frp1          , vdep        = vd1           , settle1     = settle1      , &
             nscalars        = nscalars      , scalars     = scalars       ,                              &
             bl_mynn_tkeadvect  = bl_mynn_tkeadvect    , &
             tke_budget         = bl_mynn_tkebudget    , &
@@ -629,10 +632,10 @@
        enddo
     endif
 
-    if (mix_chem) then
+    if (mix_chem .and. present(chem3d)) then
        do ic = 1,nchem
           do k = kts,kte
-             chem3d(i,k,j,ic) = max(1.e-12, chem_v(k,ic))
+             chem3d(i,k,j,ic) = max(1.e-12, chem1(k,ic))
           enddo
        enddo
     endif

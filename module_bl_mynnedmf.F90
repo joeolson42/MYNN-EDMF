@@ -390,9 +390,9 @@ CONTAINS
              km1                ,                                         &
              !smoke variables
              nchem              , ndvel             ,                     &
-             chem_v             , vdep              , frp               , &
+             chem1              , vdep              , frp               , &
              emis_ant_no        , mix_chem,enh_mix  , rrfs_sd           , &
-             smoke_dbg          , settle_v          ,                     &
+             smoke_dbg          , settle1           ,                     &
              !generic scalar array
              scalars            , nscalars          ,                     &
              !higher-order moments
@@ -515,8 +515,8 @@ CONTAINS
  
 !smoke/chemical arrays
  integer, intent(in) ::   nchem, ndvel
- real(kind_phys), dimension(kts:kte,nchem), intent(inout) :: chem_v
- real(kind_phys), dimension(kts:kte,nchem), intent(in   ) :: settle_v
+ real(kind_phys), dimension(kts:kte,nchem), intent(inout) :: chem1
+ real(kind_phys), dimension(kts:kte,nchem), intent(in   ) :: settle1
  real(kind_phys), dimension(ndvel), intent(in)    :: vdep
  real(kind_phys),                   intent(in)    :: frp,emis_ant_no
  real(kind_phys), dimension(kts:kte+1,nchem)      :: s_awchem1
@@ -989,7 +989,7 @@ CONTAINS
             &det_thl1,det_sqv1,det_sqc1,              &
             &det_u1,det_v1,                           &
             ! chem/smoke mixing
-            &nchem,chem_v,s_awchem1,                  &
+            &nchem,chem1,s_awchem1,                   &
             &mix_chem,                                &
             &nscalars,scalars,s_awscalars1,           &
             &qc_bl1,cldfra_bl1,                       &
@@ -1153,7 +1153,7 @@ CONTAINS
           call mynn_mix_chem(kts,kte,i,                  &
                &delt, dz1, pblh,                         &
                &nchem, ndvel,                            &
-               &chem_v, vdep, settle_v,                  &
+               &chem1, vdep, settle1,                    &
                &rho1, flt,                               &
                &tcd1, qcd1,                              &
                &dfh1,                                    &
@@ -1166,7 +1166,7 @@ CONTAINS
           call mynn_mix_chem(kts,kte,i,                  &
                &delt, dz1, pblh,                         &
                &nchem, ndvel,                            &
-               &chem_v, vdep, settle_v,                  &
+               &chem1, vdep, settle1,                    &
                &rho1, flt,                               &
                &tcd1, qcd1,                              &
                &dfh1,                                    &
@@ -1178,7 +1178,7 @@ CONTAINS
        endif
        do ic = 1,nchem
           do k = kts,kte
-             chem_v(k,ic) = max(1.e-12, chem_v(k,ic))
+             chem1(k,ic) = max(1.e-12, chem1(k,ic))
           enddo
        enddo
     endif

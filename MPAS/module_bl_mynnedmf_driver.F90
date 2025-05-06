@@ -443,6 +443,12 @@
        enddo
        frp1        = frp_mean(i,j)
        emisant_no1 = emis_ant_no(i,j)
+    else
+       chem1       = 0._kind_phys
+       settle1     = 0._kind_phys
+       vd1         = 0._kind_phys
+       frp1        = 0._kind_phys
+       emisant_no1 = 0._kind_phys
     endif
     scalars     = 0.0
 

@@ -913,11 +913,11 @@ CONTAINS
        if ((xland-1.5) .ge. zero) then       ! WATER
           if ( zet >= zero ) then
              !pmz = one + (cphm_st-one) * zet
-             pmz = 0.9_kind_phys + 3.5_kind_phys * zet
+             pmz = 0.95_kind_phys + 3.5_kind_phys * zet
              phh = one +  cphh_st * zet
           else
              !pmz = one/(one-cphm_unst*zet)**0.25 - zet
-             pmz = 0.9_kind_phys/(one - 18.0*zet)**0.25 - zet
+             pmz = 0.95_kind_phys/(one - cphm_unst*zet)**0.25 - zet
              phh = one/sqrt(one-cphh_unst*zet)
           end if
        else                                  ! LAND
@@ -1729,7 +1729,7 @@ CONTAINS
     real(kind_phys):: afk,abk,zwk,zwk1,dzk,qdz,vflx,bv,tau_cloud,      &
            & wstar,elb,els,elf,el_stab,el_mf,el_stab_mf,elb_mf,elt_max,&
            & PBLH_PLUS_ENT,Uonset,Ugrid,wt_u1,wt_u2,el_les,qkw_mf,     &
-           & z_m,el_unstab,els1
+           & z_m,el_unstab,els1,alp3z,cpblh
     real(kind_phys), parameter :: ctau = 1000. !constant for tau_cloud
 
 !    tv0 = 0.61*tref
@@ -1884,15 +1884,18 @@ CONTAINS
         DO k = kts+1,kte
            zwk    = zw(k)          !full-sigma levels
            qkw_mf = max((half*((edmf_a1(k)+edmf_a1(k-1))))*(half*((edmf_w1(k)+edmf_w1(k-1)))), &
-                  & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
-
+                & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
+           !pblh-dependent modifier
+           cpblh  = min((zwk+0.25*pblh2)/pblh2, one)
+           qkw_mf = cpblh * qkw_mf
+           alp3z  = cpblh * alp3
            !   **  Length scale limited by the buoyancy effect  **
            IF ( dtv(k) .GT. 0.0 ) THEN
               bv     = max( sqrt( gtr*dtv(k) ), 0.001)
               elb_mf = alp6*qkw_mf/bv
               elb_mf = elb_mf / (1. + (elb_mf/100.))
               elb    = alp2*(max(qkw(k),qkw_elb_min))/bv    &
-                     &  *( one + alp3*SQRT( vsc/(bv*elt) ) )
+                     &  *( one + alp3z*SQRT( vsc/(bv*elt) ) )
               elb    = max(elb, elb_mf)
               elb    = MIN(elb, zwk)
               elf    = one * max(qkw(k), qkw_elb_min)/bv
@@ -3700,7 +3703,7 @@ END IF
            !except neglect all but the first term for sig_r
            r3sq   = max( qsq(k), zero )
            !Calculate sigma using higher-order moments:
-           sgm(k) = max(1e-13, sqrt( r3sq ))
+           sgm(k) = max(1e-13, sqrt( real(r3sq,kind_phys) ))
            !Set constraints on sigma relative to total water
            sgm(k) = min( sgm(k), qw(k)*onethird )
            
@@ -6314,7 +6317,7 @@ END SUBROUTINE GET_PBLH
  real(kind_phys),dimension(kts:kte), intent(inout) :: vt1, vq1, sgm1
  real(kind_phys):: sigq,xl,rsl,cpm,a,qmq,Aup,Q1,diffqt,qsat_tk,     &
          Fng,qww,alpha,beta,bb,f,pt,t,q2p,b9,satvp,rhgrid,entfac,   &
-         cf_strat,qc_strat,cf_mf,qc_mf,pct_mf,wt2
+         entfacm,cf_strat,qc_strat,cf_mf,qc_mf,pct_mf,wt2
  real(kind_phys), parameter :: cf_thresh = 0.5 ! only overwrite stratus CF less than this value
 
  ! Variables interpolated to interface levels
@@ -6562,10 +6565,6 @@ END SUBROUTINE GET_PBLH
     print*,"maxwidth=",maxwidth," minwidth=",minwidth
  endif
 
- !allow min plume size to increase in large flux conditions (eddy diffusivity should be
- !large enough to handle the representation of small plumes).
- !if (maxwidth .ge. (lmax - one) .and. fltv .gt. 0.2)minwidth = lmin + dlmin*min((fltv-0.2)/0.3, one) 
-
  if (maxwidth .le. minwidth) then ! deactivate MF component
     nup2 = 0
     maxwidth = zero
@@ -6648,7 +6647,8 @@ END SUBROUTINE GET_PBLH
           !water: increase factor to compensate for decreased pwmin/pwmax
           !0.58*25 = 14.5
           !0.58*20 = 11.6
-          exc_fac = 11.6_kind_phys
+          !0.58*16 = 9.28
+          exc_fac = 9.28_kind_phys
        else
           !land: no need to increase factor - already sufficiently large superadiabatic layers
           exc_fac = 0.58_kind_phys
@@ -6749,8 +6749,12 @@ END SUBROUTINE GET_PBLH
           wmin   = 0.3_kind_phys + l*0.0005_kind_phys
 !          ENT(k,ip) = 0.33_kind_phys/(MIN(MAX(UPW(k,ip),wmin),one)*l)
 !          ENT(k,ip) = (0.20*sqrt(qkebl))/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
-          entfac = 0.21_kind_phys * min(1.64_kind_phys, max(1.2_kind_phys, sqrt(qkebl)))
-          wt2    = min(one, max(zero, zagl - pblh)/500.) !0 in pbl, 1 aloft
+          entfac = 0.21_kind_phys * min(1.64_kind_phys, max(1.3_kind_phys, sqrt(qkebl)))
+          !make entfac vary by plume width:
+!          entfacm= max(0.33_kind_phys,entfac)
+!          entfac = entfacm - ((entfacm - entfac)/real(NUP-1,kind_phys))*real(ip-1,kind_phys)
+          !make entfac tend to original value (0.33) above the pblh:
+          wt2    = min(one, max(zero, zagl - pblh)/500._kind_phys) !0 in pbl, 1 aloft
           entfac = entfac*(one-wt2) + wt2*0.33_kind_phys
           ENT(k,ip) = entfac/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
           
@@ -7323,10 +7327,10 @@ END SUBROUTINE GET_PBLH
             !sigq = 3.5E-3 * Aup * 0.5*(edmf_w1(k)+edmf_w1(k-1)) * f  ! convective component of sigma (CB2005)
             !sigq = SQRT(sigq**2 + sgm1(k)**2)    ! combined conv + stratus components
             !Per S.DeRoode 2009?
-            sigq = 10. * Aup * (QTp - qt1(k))
+            sigq = 8.0_kind_phys * Aup * (QTp - qt1(k))
             !constrain sigq wrt saturation:
-            sigq = max(sigq, qsat_tk*0.03)
-            sigq = min(sigq, qsat_tk*0.25)
+            sigq = max(sigq, qsat_tk*0.02_kind_phys)
+            sigq = min(sigq, qsat_tk*0.25_kind_phys)
 
             qmq = a * (qt1(k) - qsat_tk)          ! saturation deficit/excess;
             Q1  = qmq/sigq                        !   the numerator of Q1
@@ -7335,15 +7339,15 @@ END SUBROUTINE GET_PBLH
                !modified form from LES
                !cf_mf = min(max(0.5 + 0.36 * atan(1.20*(Q1+0.2)),0.01),0.6)
                !Original CB
-               cf_mf = min(max(half + 0.36 * atan(1.55*Q1),0.01),0.8)
-               cf_mf = max(cf_mf, 1.2 * Aup)
+               cf_mf = min(max(half + 0.36_kind_phys * atan(1.55*Q1),0.01_kind_phys),0.8_kind_phys)
+               cf_mf = max(cf_mf, 1.2_kind_phys * Aup)
                !cf_mf = min(cf_mf, 5.0 * Aup)
             else                              ! LAND
                !LES form
                !cf_mf = min(max(0.5 + 0.36 * atan(1.20*(Q1+0.4)),0.01),0.6)
                !Original CB
-               cf_mf = min(max(half + 0.36 * atan(1.55*Q1),0.01),0.8)
-               cf_mf = max(cf_mf, 1.8 * Aup)
+               cf_mf = min(max(half + 0.36_kind_phys * atan(1.55*Q1),0.01_kind_phys),0.8_kind_phys)
+               cf_mf = max(cf_mf, 1.8_kind_phys * Aup)
                !cf_mf = min(cf_mf, 5.0 * Aup)
             endif
 
@@ -7360,9 +7364,9 @@ END SUBROUTINE GET_PBLH
             ! are converted to grid means (not in-cloud quantities).
             if ((landsea-1.5).GE.zero) then  ! water
                if (QCp * Aup > 5e-5) then
-                  qc_mf     = 1.86 * (QCp * Aup) - 2.2e-5
+                  qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
                else
-                  qc_mf     = 1.18 * (QCp * Aup)
+                  qc_mf     = 1.18_kind_phys * (QCp * Aup)
                endif
                cf_strat     = cldfra_bl1(k)
                qc_strat     = qc_bl1(k)
@@ -7371,9 +7375,9 @@ END SUBROUTINE GET_PBLH
                qc_bl1(k)    = qc_mf*pct_mf + (one-pct_mf)*qc_strat
             else                             ! land
                if (QCp * Aup > 5e-5) then
-                  qc_mf     = 1.86 * (QCp * Aup) - 2.2e-5
+                  qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
                else
-                  qc_mf     = 1.18 * (QCp * Aup)
+                  qc_mf     = 1.18_kind_phys * (QCp * Aup)
                endif
                cf_strat	    = cldfra_bl1(k)
                qc_strat     = qc_bl1(k)
@@ -7487,19 +7491,19 @@ real(kind_phys):: diff,exn,t,th,qs,qcold
 ! number of iterations
   niter=50
 ! minimum difference (usually converges in < 8 iterations with diff = 2e-5)
-  diff=1.e-6
+  diff=1.e-6_kind_phys
 
   EXN=(P/p1000mb)**rcp
-  !QC=0.  !better first guess QC is incoming from lower level, do not set to zero
+  QC=zero  !better first guess QC is incoming from lower level, do not set to zero
   do ni=1,NITER
-     T=EXN*THL + xlvcp*QC
+     T=EXN*THL + xlvcp/EXN*QC
      QS=qsat_blend(T,P)
      QCOLD=QC
      QC=half*QC + half*MAX((QT-QS),zero)
      if (abs(QC-QCOLD)<Diff) exit
   enddo
 
-  T=EXN*THL + xlvcp*QC
+  T=EXN*THL + xlvcp/EXN*QC
   QS=qsat_blend(T,P)
   QC=max(QT-QS,zero)
 
@@ -7507,7 +7511,7 @@ real(kind_phys):: diff,exn,t,th,qs,qcold
   if(zagl < 100.)QC=zero
 
   !THV=(THL+xlv/cp*QC).*(1+(1-rvovrd)*(QT-QC)-QC);
-  THV=(THL+xlvcp*QC)*(one+QT*(rvovrd-one)-rvovrd*QC)
+  THV=(THL+xlvcp/EXN*QC)*(one+QT*(rvovrd-one)-rvovrd*QC)
 
 !  IF (QC > zero) THEN
 !    PRINT*,"EDMF SAT, p:",p," iterations:",ni
@@ -7515,13 +7519,9 @@ real(kind_phys):: diff,exn,t,th,qs,qcold
 !    PRINT*," QS=",QS," QT=",QT," QC=",QC,"ratio=",qc/qs
 !  ENDIF
 
-  !THIS BASICALLY GIVE THE SAME RESULT AS THE PREVIOUS LINE
-  !TH = THL + xlv/cp/EXN*QC
-  !THV= TH*(1. + p608*QT)
-
-  !print *,'t,p,qt,qs,qc'
-  !print *,t,p,qt,qs,qc 
-
+  !THIS BASICALLY GIVES THE SAME RESULT AS THE PREVIOUS LINE
+  !TH = THL + xlvcp/EXN*QC
+  !THV= TH*(1. + p608*QT - QC)
 
 end subroutine condensation_edmf
 
@@ -7557,7 +7557,7 @@ real(kind_phys):: diff,exn,t,th,qs,qx,qxold,frac_ice,frac_liq,thvin
 
   exn=(p/p1000mb)**rcp
   do ni=1,niter
-     t=exn*thl + xlvcp*qc + xlscp*qi
+     t=exn*thl + xlvcp/exn*qc + xlscp/exn*qi
      qs=qsat_blend(t,p)
      qxold=qc+qi
      qx=qc+qi
@@ -7567,7 +7567,7 @@ real(kind_phys):: diff,exn,t,th,qs,qx,qxold,frac_ice,frac_liq,thvin
      if (abs(qx-qxold)<diff) exit
   enddo
 
-  t=exn*thl + xlvcp*qc + xlscp*qi
+  t=exn*thl + xlvcp/exn*qc + xlscp/exn*qi
   qs=qsat_blend(t,p)
   qx=max(qt-qs,zero)
   qc=frac_liq*qx
@@ -7576,7 +7576,7 @@ real(kind_phys):: diff,exn,t,th,qs,qx,qxold,frac_ice,frac_liq,thvin
   !thv=(thl+xlv/cp*qc).*(1+(1-rvovrd)*(qt-qc)-qc)
 !was this: thv=(thl+xlvcp*qc)*(1.+qt*(rvovrd-1.)-rvovrd*qc)
   !thv=(thl + xlvcp*qc + xlscp*qi)*(1. + qt*(rvovrd-1.)-rvovrd*qc)
-  thv=(thl + xlvcp*qc + xlscp*qi)*(one + p608*(qt-qx))
+  thv=(thl + xlvcp/exn*qc + xlscp/exn*qi)*(one + p608*(qt-qx) - qx)
 
 !  if (qc > zero) then
 !    print*,"edmf sat, p:",p," iterations:",ni

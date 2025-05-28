@@ -913,11 +913,10 @@ CONTAINS
        if ((xland-1.5) .ge. zero) then       ! WATER
           if ( zet >= zero ) then
              !pmz = one + (cphm_st-one) * zet
-             pmz = 0.95_kind_phys + 3.5_kind_phys * zet
+             pmz = one + 3.0_kind_phys * zet
              phh = one +  cphh_st * zet
           else
-             !pmz = one/(one-cphm_unst*zet)**0.25 - zet
-             pmz = 0.95_kind_phys/(one - cphm_unst*zet)**0.25 - zet
+             pmz = one/(one-cphm_unst*zet)**0.25 - zet
              phh = one/sqrt(one-cphh_unst*zet)
           end if
        else                                  ! LAND
@@ -1723,7 +1722,7 @@ CONTAINS
     !SURFACE LAYER LENGTH SCALE MODS TO REDUCE IMPACT IN UPPER BOUNDARY LAYER
     real(kind_phys), parameter :: ZSLH        = 100.  !< Max height correlated to surface conditions (m)
     real(kind_phys), parameter :: CSL         = 2.    !< CSL = constant of proportionality to L O(1)
-    real(kind_phys), parameter :: qkw_elb_min = 0.18
+    real(kind_phys), parameter :: qkw_elb_min = 0.05  !this assumes some minumum TKE/TPE is present 
 
     integer :: i,j,k
     real(kind_phys):: afk,abk,zwk,zwk1,dzk,qdz,vflx,bv,tau_cloud,      &
@@ -1802,7 +1801,7 @@ CONTAINS
            IF ( rmol .GT. 0.0 ) THEN
               els  = karman*zwk/(one+cns*MIN( zwk*rmol, zmax ))
            ELSE
-              els  =  karman*zwk*( one - alp4* zwk*rmol )**0.2
+              els  = karman*zwk*( one - alp4* zwk*rmol )**0.2
            END IF
 
            !   ** HARMONC AVERGING OF MIXING LENGTH SCALES:
@@ -1831,10 +1830,10 @@ CONTAINS
         alp6  = 50._kind_phys
 
         ! Impose limits on the height integration for elt and the transition layer depth
-        pblh2= max(pblh,300.) !minpblh)
-        h1   = max(0.3*pblh2,300.)
-        h1   = min(h1,600.)          ! 1/2 transition layer depth
-        h2   = h1*half               ! 1/4 transition layer depth
+        pblh2= max(pblh,300._kind_phys) !minpblh)
+        h1   = max(0.3*pblh2,300._kind_phys)
+        h1   = min(h1,600._kind_phys)   ! 1/2 transition layer depth
+        h2   = h1*half                  ! 1/4 transition layer depth
 
         qtke(kts)  =max(half*qke(kts), half*qkemin) !tke at full sigma levels
         thetaw(kts)=theta(kts)            !theta at full-sigma levels
@@ -1856,7 +1855,7 @@ CONTAINS
         zwk = zw(k)
         DO WHILE (zwk .LE. pblh2+h1)
            dzk = half*( dz(k)+dz(k-1) )
-           qdz = min(max( qkw(k)-qmin, 0.01 ), 30.0)*dzk
+           qdz = min(max( qkw(k), 0.01_kind_phys ), 30.0_kind_phys)*dzk
            elt = elt +qdz*zwk
            vsc = vsc +qdz
            k   = k+1
@@ -1866,12 +1865,12 @@ CONTAINS
         if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
            elt_max=350.+100.*min(one, max(zero, ugrid - 50.0)/25.0)
         else
-           elt_max=400.
+           elt_max=400._kind_phys
         endif
-        elt = MIN( MAX( alp1*elt/vsc, 8.), elt_max)
+        elt = MIN( MAX( alp1*elt/vsc, 8._kind_phys), elt_max)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt + ( vq(kts)+tv0 )*flq
-        vflx= fltv-0.008_kind_phys
+        vflx= fltv-0.005_kind_phys
         vsc = ( gtr*elt*MAX( vflx, zero ) )**onethird
 
         !   **  Strictly, el(i,j,1) is not zero.  **
@@ -1884,21 +1883,21 @@ CONTAINS
         DO k = kts+1,kte
            zwk    = zw(k)          !full-sigma levels
            qkw_mf = max((half*((edmf_a1(k)+edmf_a1(k-1))))*(half*((edmf_w1(k)+edmf_w1(k-1)))), &
-                & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
+                  & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
            !pblh-dependent modifier
-           cpblh  = min((zwk+0.25*pblh2)/pblh2, one)
-           qkw_mf = cpblh * qkw_mf
-           alp3z  = cpblh * alp3
+           cpblh  = min((zwk+0.25_kind_phys*pblh2)/pblh2, one)
+           !qkw_mf = cpblh * qkw_mf
+           !alpz   = cpblh * alp3
            !   **  Length scale limited by the buoyancy effect  **
            IF ( dtv(k) .GT. 0.0 ) THEN
-              bv     = max( sqrt( gtr*dtv(k) ), 0.001)
+              bv     = max( sqrt( gtr*dtv(k) ), 0.001_kind_phys)
               elb_mf = alp6*qkw_mf/bv
-              elb_mf = elb_mf / (1. + (elb_mf/100.))
+              elb_mf = elb_mf / (one + (elb_mf/100._kind_phys))
               elb    = alp2*(max(qkw(k),qkw_elb_min))/bv    &
-                     &  *( one + alp3z*SQRT( vsc/(bv*elt) ) )
+                     &  *( one + alp3*SQRT( vsc/(bv*elt) ) )
               elb    = max(elb, elb_mf)
               elb    = MIN(elb, zwk)
-              elf    = one * max(qkw(k), qkw_elb_min)/bv
+              elf    = one * max(qkw(k), 0.18_kind_phys)/bv
               elf    = max(elf, elb_mf)
               elBLavg(k) = MAX(elBLavg(k), elb_mf)
            ELSE
@@ -1906,7 +1905,7 @@ CONTAINS
               elf    = elb
            ENDIF
 
-           z_m = MAX(karman, zwk - 4.)
+           z_m = MAX(karman, zwk - 4._kind_phys)
            !   **  Length scale in the surface layer  **
            IF ( rmol .GT. 0.0 ) THEN
               els  = karman*zwk/(one+cns*MIN( zwk*rmol, zmax ))
@@ -1932,7 +1931,7 @@ CONTAINS
            if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
               el(k)=el(k)*wt_u1
            endif
-           el(k) = el(k)*(1.-wt) + alp5*elBLavg(k)*wt
+           el(k) = el(k)*(one-wt) + alp5*elBLavg(k)*wt
 
            !if (el(k) > 1000.) then
            !   print*,"big ML at k=",k," el=",el(k),"elb=",elb," elBL=",elBLavg(k), &
@@ -1944,23 +1943,23 @@ CONTAINS
 
      CASE (2) !Local (mostly) mixing length formulation
 
-        Uonset = 3.5 + dz(kts)*0.1
+        Uonset = 3.5_kind_phys + dz(kts)*0.1_kind_phys
         Ugrid  = sqrt(u1(kts)**2 + v1(kts)**2)
-        cns  = 3.5 !  * (one - MIN(MAX(Ugrid - Uonset, 0.0)/10.0, 1.0))
-        alp1 = 0.22
-        alp2 = 0.30
-        alp3 = 2.5
-        alp4 = 5.0
+        cns  = 3.5_kind_phys !  * (one - MIN(MAX(Ugrid - Uonset, 0.0)/10.0, 1.0))
+        alp1 = 0.22_kind_phys
+        alp2 = 0.30_kind_phys
+        alp3 = 2.5_kind_phys
+        alp4 = 5.0_kind_phys
         alp5 = alp2 !like alp2, but for free atmosphere
-        alp6 = 50.0 !used for MF mixing length
+        alp6 = 50.0_kind_phys !used for MF mixing length
 
         ! Impose limits on the height integration for elt and the transition layer depth
         !pblh2=MAX(pblh,minpblh)
-        pblh2=MAX(pblh,    300.)
+        pblh2=MAX(pblh, 300._kind_phys)
         !h1=MAX(0.3*pblh2,mindz)
         !h1=MIN(h1,maxdz)         ! 1/2 transition layer depth
-        h1=MAX(0.3*pblh2,300.)
-        h1=MIN(h1,600.)
+        h1=MAX(0.3_kind_phys*pblh2,300._kind_phys)
+        h1=MIN(h1,600._kind_phys)
         h2=h1*half                ! 1/4 transition layer depth
 
         qtke(kts)=MAX(half*qke(kts), half*qkemin) !tke at full sigma levels
@@ -2612,8 +2611,8 @@ CONTAINS
        Prlim = wt*Prlim + (one-wt)*min(Prlimit_sfc, Prlim)
 !     
 !  Modified: Dec/22/2005, from here, (dlsq -> elsq)
-       gmel = gm (k)*elsq
-       ghel = gh (k)*elsq
+       gmel = gm(k)*elsq
+       ghel = gh(k)*elsq
 !  Modified: Dec/22/2005, up to here
 
        ! Level 2.0 debug prints
@@ -6036,8 +6035,8 @@ real(kind_phys), dimension(kts:kte+1), intent(in) :: zw1
 !local variables
 real(kind_phys):: pblh_stable,qtke,qtkem1,wt,maxqke,TKEeps,minthv
 real(kind_phys):: delt_thv   !delta theta-v; dependent on land/sea point
-real(kind_phys), parameter :: sbl_lim  = 250. !below this height (m), the stable PBLH method will dominate the blending.
-real(kind_phys), parameter :: sbl_damp = 300. !transition length for blending (m).
+real(kind_phys), parameter :: sbl_lim  = 200. !below this height (m), the stable PBLH method will dominate the blending.
+real(kind_phys), parameter :: sbl_damp = 170. !transition length for blending (m).
 integer :: i,j,k,kthv,ktke,kpbl
 integer, parameter :: stable_method=1 !0: TKE-based PBLH, 1: ust*700
 
@@ -6317,7 +6316,7 @@ END SUBROUTINE GET_PBLH
  real(kind_phys),dimension(kts:kte), intent(inout) :: vt1, vq1, sgm1
  real(kind_phys):: sigq,xl,rsl,cpm,a,qmq,Aup,Q1,diffqt,qsat_tk,     &
          Fng,qww,alpha,beta,bb,f,pt,t,q2p,b9,satvp,rhgrid,entfac,   &
-         entfacm,cf_strat,qc_strat,cf_mf,qc_mf,pct_mf,wt2
+         cf_strat,qc_strat,cf_mf,qc_mf,pct_mf,wt2
  real(kind_phys), parameter :: cf_thresh = 0.5 ! only overwrite stratus CF less than this value
 
  ! Variables interpolated to interface levels
@@ -6441,7 +6440,8 @@ END SUBROUTINE GET_PBLH
 
  if (debug_mf == 1 .and. i==idbg .and. j==jdbg) then
     print*,"===incoming forcing in mf component:"
-    print*,"fltv=",fltv," Psig_shcu=",Psig_shcu," wspd=",sqrt(max(u1(kts)**2 + v1(kts)**2, 0.01_kind_phys))
+    print*,"  flt=",flt," fltv=",fltv
+    print*,"  Psig_shcu=",Psig_shcu," wspd=",sqrt(max(u1(kts)**2 + v1(kts)**2, 0.01_kind_phys))
  endif
       
  ! Taper off MF scheme when significant resolved-scale motions
@@ -6491,22 +6491,16 @@ END SUBROUTINE GET_PBLH
  ! Also, ensure that it is at least slightly superadiabatic up through 50 m
  superadiabatic = .false.
  if ((landsea-1.5).ge.zero) then
-    hux = -0.001 ! WATER   ! dT/dz must be < - 0.1 K per 100 m.
+    hux = -0.002  ! WATER   ! dT/dz must be < -0.2 K per 100 m.
  else
-    hux = -0.003 ! LAND    ! dT/dz must be < - 0.3 K per 100 m.
+    hux = -0.003  ! LAND    ! dT/dz must be < -0.3 K per 100 m.
  endif
- tvs = ts*(one+p608*qv1(kts))
- do k=1,max(1,k50) 
-    if (k == 1) then
-       dthvdz = (thv1(k)-tvs)/(half*dz1(k))
-       if (dthvdz < hux) then
-          superadiabatic = .true.
-       else
-          superadiabatic = .false.
-          exit
-       endif
-    else
-       hux = -0.0005  !allow for smaller superadiabatic layers above the surface
+ tvs    = ts*(one+p608*qv1(kts))
+ if ((thv1(kts)-tvs)/(half*dz1(kts)) < hux) then
+    !if superadiabatic at the surface, continue checking all layers below 50 m:
+    superadiabatic = .true.
+    do k=2,max(2,k50)
+       hux = -0.0015  !allow for smaller superadiabatic layers above the surface
        dthvdz = (thv1(k)-thv1(k-1))/(half*(dz1(k)+dz1(k-1)))
        if (dthvdz < hux) then
           superadiabatic = .true.
@@ -6514,8 +6508,8 @@ END SUBROUTINE GET_PBLH
           superadiabatic = .false.
           exit
        endif
-    endif
- enddo
+    enddo
+ endif
 
  if (debug_mf == 1 .and. i==idbg .and. j==jdbg) then
     print*," superadiatic=",superadiabatic," hux=",hux
@@ -6535,9 +6529,9 @@ END SUBROUTINE GET_PBLH
  maxwidth_pbl = min(1.1_kind_phys*pblh, lmax) 
  ! Criteria (3)
  if ((landsea-1.5) .lt. zero) then  !land
-    maxwidth_cld = min(lmax, max(0.5_kind_phys*cloud_base, 400._kind_phys))
+    maxwidth_cld = min(lmax, max(0.5_kind_phys*cloud_base, 300._kind_phys))
  else                               !water
-    maxwidth_cld = min(lmax, max(0.9_kind_phys*cloud_base, 400._kind_phys))
+    maxwidth_cld = min(lmax, max(0.5_kind_phys*cloud_base, 300._kind_phys))
  endif
  ! Criteria (4)
  wspd_pbl=sqrt(max(u1(kts)**2 + v1(kts)**2, 0.01_kind_phys))
@@ -6571,7 +6565,7 @@ END SUBROUTINE GET_PBLH
  endif
 
  !Begin plume processing if passes criteria
- if ( fltv2 > 0.002 .AND. (maxwidth > minwidth) .AND. superadiabatic) then
+ if ( flt > zero .AND. fltv2 > 0.005 .AND. (maxwidth > minwidth) .AND. superadiabatic) then
 
     ! Find coef C for number size density N
     cn = zero
@@ -6648,7 +6642,9 @@ END SUBROUTINE GET_PBLH
           !0.58*25 = 14.5
           !0.58*20 = 11.6
           !0.58*16 = 9.28
-          exc_fac = 9.28_kind_phys
+          !0.58*10 = 5.8
+          !0.58*5  = 2.9
+          exc_fac = 5.8_kind_phys
        else
           !land: no need to increase factor - already sufficiently large superadiabatic layers
           exc_fac = 0.58_kind_phys
@@ -6749,10 +6745,8 @@ END SUBROUTINE GET_PBLH
           wmin   = 0.3_kind_phys + l*0.0005_kind_phys
 !          ENT(k,ip) = 0.33_kind_phys/(MIN(MAX(UPW(k,ip),wmin),one)*l)
 !          ENT(k,ip) = (0.20*sqrt(qkebl))/(MIN(MAX(UPW(K-1,ip),wmin),one)*l)
-          entfac = 0.21_kind_phys * min(1.64_kind_phys, max(1.3_kind_phys, sqrt(qkebl)))
-          !make entfac vary by plume width:
-!          entfacm= max(0.33_kind_phys,entfac)
-!          entfac = entfacm - ((entfacm - entfac)/real(NUP-1,kind_phys))*real(ip-1,kind_phys)
+          entfac = 0.21_kind_phys * min(1.64_kind_phys, max(1.4_kind_phys, sqrt(qkebl)))
+          !entfac = 0.33_kind_phys
           !make entfac tend to original value (0.33) above the pblh:
           wt2    = min(one, max(zero, zagl - pblh)/500._kind_phys) !0 in pbl, 1 aloft
           entfac = entfac*(one-wt2) + wt2*0.33_kind_phys
@@ -8003,16 +7997,16 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
             !entexp=exp(-ent(k,i)*dz(k))
             !entexp_m=exp(-ent(k,i)/3.*dz(k))
             entexp  =ent(k,i)*dz(k)        !for all scalars
-            entexm  =ent(k,i)*dz(k)*0.5    !test for momentum
+            entexm  =ent(k,i)*dz(k)*half   !test for momentum
 
-            qtn     =downqt(k+1,i) *(1.-entexp) + qt(k)*entexp
-            thln    =downthl(k+1,i)*(1.-entexp) + thl(k)*entexp
-            qncn    =downqnc(k+1,i) *(1.-entexp) + qnc(k)*entexp
-            qnin    =downqni(k+1,i) *(1.-entexp) + qni(k)*entexp
-            qnwfan  =downqnwfa(k+1,i) *(1.-entexp) + qnwfa(k)*entexp
-            qnifan  =downqnifa(k+1,i) *(1.-entexp) + qnifa(k)*entexp
-            un      =downu(k+1,i)  *(1.-entexm) + u(k)*entexm
-            vn      =downv(k+1,i)  *(1.-entexm) + v(k)*entexm
+            qtn     =downqt(k+1,i)   *(one-entexp) + qt(k)*entexp
+            thln    =downthl(k+1,i)  *(one-entexp) + thl(k)*entexp
+            qncn    =downqnc(k+1,i)  *(one-entexp) + qnc(k)*entexp
+            qnin    =downqni(k+1,i)  *(one-entexp) + qni(k)*entexp
+            qnwfan  =downqnwfa(k+1,i)*(one-entexp) + qnwfa(k)*entexp
+            qnifan  =downqnifa(k+1,i)*(one-entexp) + qnifa(k)*entexp
+            un      =downu(k+1,i)    *(one-entexm) + u(k)*entexm
+            vn      =downv(k+1,i)    *(one-entexm) + v(k)*entexm
             !qken=downqke(k-1,i)*(1.-entexp) + qke(k)*entexp
 !            qtn =downqt(k+1,i) +(qt(k) -downqt(k+1,i)) *(1.-entexp)
 !            thln=downthl(k+1,i)+(thl(k)-downthl(k+1,i))*(1.-entexp)

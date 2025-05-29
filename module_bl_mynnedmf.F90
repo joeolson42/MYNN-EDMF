@@ -3733,15 +3733,15 @@ END IF
            wt2    = min(one, max(zero, zagl - pblh2)/300.) !0 in pbl, 1 aloft
            !ensure adequate RH & q1 when qi is at least 1e-9 (above the PBLH)
            if ((qi(k)+qs(k))>1.e-9 .and. (zagl .gt. pblh2)) then
-              rh_hack =min(rhmax, rhcrit + wt2*0.045*(9.0 + log10(qi(k)+qs(k))))
+              rh_hack =min(rhmax, rhcrit + wt2*0.045_kind_phys*(max(zero,9.0_kind_phys + log10(qi(k)+qs(k))) ))
               rh(k)   =max(rh(k), rh_hack)
               !add rh-based q1
               q1_rh   =-3. + 3.*(rh(k)-rhcrit)/(one-rhcrit)
               q1(k)   =max(q1_rh, q1(k) )
            endif
            !ensure adequate rh & q1 when qc is at least 1e-6 (above the PBLH)
-           if (qc(k)>1.e-6 .and. (zagl .gt. pblh2)) then
-              rh_hack =min(rhmax, rhcrit + wt2*0.08*(6.0 + log10(qc(k))))
+           if (qc(k)>1.e-5 .and. (zagl .gt. pblh2)) then
+              rh_hack =min(rhmax, rhcrit + wt2*0.12_kind_phys*(max(zero,5.0_kind_phys + log10(qc(k))) ))
               rh(k)   =max(rh(k), rh_hack)
               !add rh-based q1
               q1_rh   =-3. + 3.*(rh(k)-rhcrit)/(one-rhcrit)
@@ -7321,7 +7321,7 @@ END SUBROUTINE GET_PBLH
             !sigq = 3.5E-3 * Aup * 0.5*(edmf_w1(k)+edmf_w1(k-1)) * f  ! convective component of sigma (CB2005)
             !sigq = SQRT(sigq**2 + sgm1(k)**2)    ! combined conv + stratus components
             !Per S.DeRoode 2009?
-            sigq = 8.0_kind_phys * Aup * (QTp - qt1(k))
+            sigq = 9.0_kind_phys * Aup * (QTp - qt1(k))
             !constrain sigq wrt saturation:
             sigq = max(sigq, qsat_tk*0.02_kind_phys)
             sigq = min(sigq, qsat_tk*0.25_kind_phys)

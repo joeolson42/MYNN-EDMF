@@ -330,6 +330,10 @@ MODULE module_bl_mynnedmf
 !!on the cloud PDF and mass-flux scheme, using LES-derived similarity function.
  real(kind_phys), parameter :: scaleaware=1.
 
+!>Parameter used for the conversion of tsq to qpe when using the closures that support 
+!!total turbulent energy (levels 2.7 and 3.0):
+  real(kind_phys), parameter :: taue=80. !100.
+ 
 !>Option to control implicit/explicit mass-flux tendencies when
 !>bl_mynn_edmf = 2  (0: mass flux inactive, 1: implicit, 2: explicit)
  real(kind_phys), parameter :: upwind = 1.0! upwind=1.0: use upwind approximation for mass-flux calculation
@@ -950,6 +954,7 @@ CONTAINS
          &qc_bl1,qi_bl1,cldfra_bl1,                   &
          &pblh,hfx,                                   &
          &vt1, vq1, th1, sgm1,                        &
+         &closure,                                    &
          &spp_pbl, pattern_spp_pbl1                   )
 
 
@@ -1360,7 +1365,7 @@ CONTAINS
     real(kind_phys), dimension(kts:kte),   intent(inout) :: el,qke
     real(kind_phys), dimension(kts:kte) ::                       &
          &ql,pdk,pdt,pdq,pdc,dtl,dqw,dtv,                        &
-         &gm,gh,sm,sh,qkw,vt,vq
+         &gm,gh,sm,sh,qkw,qtw,vt,vq,qpe
     integer :: k,l,lmax
     real(kind_phys):: phm,vkz,elq,elv,b1l,b2l,pmz=1.,phh=1.,     &
          &flt=0.,fltv=0.,flq=0.,tmpq
@@ -1373,6 +1378,8 @@ CONTAINS
        ql(k) = zero
        vt(k) = zero
        vq(k) = zero
+       qkw(k)= zero
+       qtw(k)= zero
     END DO
 !
 !> - Call mym_level2() to calculate the stability functions at level 2.
@@ -1395,19 +1402,21 @@ CONTAINS
        ENDDO
     ENDIF
 !
-    phm      = phh*b2 / ( b1*pmz )**(1.0/3.0)
-    tsq(kts) = phm*( flt/ust )**2
-    qsq(kts) = phm*( flq/ust )**2
+    phm      = phh*b2 / ( b1*pmz )**onethird
+    tsq(kts) = phm*( max(zero,flt)/ust )**2
+    qsq(kts) = phm*( max(zero,flq)/ust )**2
     cov(kts) = phm*( flt/ust )*( flq/ust )
+    qpe(kts) = min(two, max(zero, two * tsq(kts) * gtr**2 * taue**2))
 !
     DO k = kts+1,kte
        vkz = karman*zw(k)
        el(k) = vkz/( one + vkz/100.0 )
 !       qke(k) = 0.0
 !
-       tsq(k) = 0.0
-       qsq(k) = 0.0
-       cov(k) = 0.0
+       tsq(k) = zero
+       qsq(k) = zero
+       cov(k) = zero
+       qpe(k) = zero
     END DO
 !
 !   **  Initialization with an iterative manner          **
@@ -1422,17 +1431,18 @@ CONTAINS
             &            dz, dx, zw,              &
             &            rmol, flt, fltv, flq,    &
             &            vt, vq,                  &
-            &            u, v, qke,               &
+            &            u, v, qke, qpe,          &
             &            dtv,                     &
             &            el,                      &
             &            zi,theta,                &
-            &            qkw,Psig_bl,cldfra_bl1,  &
+            &            qkw, qtw,                &
+            &            Psig_bl,cldfra_bl1,      &
             &            bl_mynn_mixlength,       &
             &            edmf_w1,edmf_a1,         &
             &            edmf_w_dd1,edmf_a_dd1    )
 !
        DO k = kts+1,kte
-          elq = el(k)*qkw(k)
+          elq    = el(k)*qkw(k)
           pdk(k) = elq*( sm(k)*gm(k) + &
                &         sh(k)*gh(k) )
           pdt(k) = elq*  sh(k)*dtl(k)**2
@@ -1445,12 +1455,12 @@ CONTAINS
        elv = half*( el(kts+1)+el(kts) ) /  vkz
        IF (INITIALIZE_QKE)THEN 
           !qke(kts) = ust**2 * ( b1*pmz*elv    )**(2.0/3.0)
-          qke(kts) = 1.0 * MAX(ust,0.02)**2 * ( b1*pmz*elv    )**(2.0/3.0) 
+          qke(kts) = one * MAX(ust,0.02)**2 * ( b1*pmz*elv    )**twothirds 
        ENDIF
 
-       phm      = phh*b2 / ( b1*pmz/elv**2 )**(1.0/3.0)
-       tsq(kts) = phm*( flt/ust )**2
-       qsq(kts) = phm*( flq/ust )**2
+       phm      = phh*b2 / ( b1*pmz/elv**2 )**onethird
+       tsq(kts) = phm*( max(zero,flt)/ust )**2
+       qsq(kts) = phm*( max(zero,flq)/ust )**2
        cov(kts) = phm*( flt/ust )*( flq/ust )
 
        DO k = kts+1,kte-1
@@ -1464,7 +1474,7 @@ CONTAINS
           ENDIF
 
           IF ( qke(k) .LE. zero ) THEN
-             b2l = 0.0
+             b2l = zero
           ELSE
              b2l = b2*( b1l/b1 ) / SQRT( qke(k) )
           END IF
@@ -1476,21 +1486,13 @@ CONTAINS
 
     END DO
 
-!!    qke(kts)=qke(kts+1)
-!!    tsq(kts)=tsq(kts+1)
-!!    qsq(kts)=qsq(kts+1)
-!!    cov(kts)=cov(kts+1)
-
     IF (INITIALIZE_QKE)THEN
-       qke(kts)=0.5*(qke(kts)+qke(kts+1))
+       qke(kts)=half*(qke(kts)+qke(kts+1))
        qke(kte)=qke(kte-1)
     ENDIF
     tsq(kte)=tsq(kte-1)
     qsq(kte)=qsq(kte-1)
     cov(kte)=cov(kte-1)
-
-!
-!    RETURN
 
   END SUBROUTINE mym_initialize
 !> @}
@@ -1667,10 +1669,10 @@ CONTAINS
     &            dz, dx, zw,                   &
     &            rmol, flt, fltv, flq,         &
     &            vt, vq,                       &
-    &            u1, v1, qke,                  &
+    &            u1, v1, qke, qpe,             &
     &            dtv,                          &
     &            el,                           &
-    &            pblh, theta, qkw,             &
+    &            pblh, theta, qkw, qtw,        &
     &            Psig_bl, cldfra_bl1,          &
     &            bl_mynn_mixlength,            &
     &            edmf_w1,edmf_a1,              &
@@ -1691,8 +1693,9 @@ CONTAINS
     real(kind_phys), intent(in) :: rmol,flt,fltv,flq,Psig_bl,xland
     real(kind_phys), intent(in) :: dx,pblh
     real(kind_phys), dimension(kts:kte), intent(in)   :: u1,v1,  &
-         &qke,vt,vq,cldfra_bl1,edmf_w1,edmf_a1,edmf_w_dd1,edmf_a_dd1
-    real(kind_phys), dimension(kts:kte), intent(out)  :: qkw, el
+         &qke,qpe,vt,vq,cldfra_bl1,edmf_w1,edmf_a1,edmf_w_dd1,edmf_a_dd1
+    real(kind_phys), dimension(kts:kte), intent(out)  :: el
+    real(kind_phys), dimension(kts:kte), intent(inout):: qkw,qtw
     real(kind_phys), dimension(kts:kte), intent(in)   :: dtv
     real(kind_phys):: elt,vsc
     real(kind_phys), dimension(kts:kte), intent(in) :: theta
@@ -1757,6 +1760,7 @@ CONTAINS
            abk = one -afk
            qkw(k) = SQRT(MAX(qke(k)*abk+qke(k-1)*afk, qkemin))
         END DO
+        qtw = qkw
 
         elt = 1.0e-5
         vsc = 1.0e-5        
@@ -1837,12 +1841,13 @@ CONTAINS
 
         qtke(kts)  =max(half*qke(kts), half*qkemin) !tke at full sigma levels
         thetaw(kts)=theta(kts)            !theta at full-sigma levels
-        qkw(kts)   =sqrt(max(qke(kts), qkemin))
-
+        qkw(kts)   =sqrt(max(qke(kts)         , qkemin))
+        qtw(kts)   =sqrt(max(qke(kts)+qpe(kts), qkemin))
         DO k = kts+1,kte
            afk      = dz(k)/( dz(k)+dz(k-1) )
            abk      = one -afk
            qkw(k)   = sqrt(max(qke(k)*abk+qke(k-1)*afk, qkemin))
+           qtw(k)   = sqrt(max((qke(k)+qpe(k))*abk+(qke(k-1)+qpe(k-1))*afk, qkemin))
            qtke(k)  = max(half*(qkw(k)**2), 0.005_kind_phys) ! q -> TKE
            thetaw(k)= theta(k)*abk + theta(k-1)*afk
         END DO
@@ -1886,18 +1891,19 @@ CONTAINS
                   & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
            !pblh-dependent modifier
            cpblh  = min((zwk+0.25_kind_phys*pblh2)/pblh2, one)
-           !qkw_mf = cpblh * qkw_mf
-           !alpz   = cpblh * alp3
+           qkw_mf = cpblh * qkw_mf
+           alp3z  = cpblh * alp3
            !   **  Length scale limited by the buoyancy effect  **
            IF ( dtv(k) .GT. 0.0 ) THEN
               bv     = max( sqrt( gtr*dtv(k) ), 0.001_kind_phys)
               elb_mf = alp6*qkw_mf/bv
               elb_mf = elb_mf / (one + (elb_mf/100._kind_phys))
               elb    = alp2*(max(qkw(k),qkw_elb_min))/bv    &
-                     &  *( one + alp3*SQRT( vsc/(bv*elt) ) )
+                   &  *( one + alp3z*SQRT( vsc/(bv*elt) ) )
               elb    = max(elb, elb_mf)
               elb    = MIN(elb, zwk)
-              elf    = one * max(qkw(k), 0.18_kind_phys)/bv
+
+              elf    = one * max(qkw(k), qkw_elb_min)/bv
               elf    = max(elf, elb_mf)
               elBLavg(k) = MAX(elBLavg(k), elb_mf)
            ELSE
@@ -1963,12 +1969,13 @@ CONTAINS
         h2=h1*half                ! 1/4 transition layer depth
 
         qtke(kts)=MAX(half*qke(kts), half*qkemin) !tke at full sigma levels
-        qkw(kts) = SQRT(MAX(qke(kts), qkemin))
-
+        qkw(kts) = SQRT(MAX(qke(kts)         , qkemin))
+        qtw(kts) = SQRT(MAX(qke(kts)+qpe(kts), qkemin))
         DO k = kts+1,kte
            afk    = dz(k)/( dz(k)+dz(k-1) )
            abk    = one -afk
-           qkw(k) = SQRT(MAX(qke(k)*abk+qke(k-1)*afk, qkemin))
+           qkw(k) = SQRT(MAX(qke(k)*abk+qke(k-1)*afk                    , qkemin))
+           qtw(k) = SQRT(MAX((qke(k)+qpe(k))*abk+(qke(k-1)+qpe(k-1))*afk, qkemin))
            qtke(k)= half*qkw(k)**2  ! qkw -> TKE
         END DO
 
@@ -2071,7 +2078,6 @@ CONTAINS
          !try squared-blending
          el(k) = SQRT( els**2/(1. + (els**2/elt**2) +(els**2/elb_mf**2)))
          el(k) = el(k)*(1.-wt) + elf*wt
-
        END DO
 
     END SELECT
@@ -2506,12 +2512,12 @@ CONTAINS
     real(kind_phys):: q3sq_old,dlsq1,qWTP_old,qWTP_new
     real(kind_phys):: dudz,dvdz,dTdz,upwp,vpwp,Tpwp
 
-    real(kind_phys), dimension(kts:kte) :: qkw,dtl,dqw,dtv,gm,gh,sm,sh
+    real(kind_phys), dimension(kts:kte) :: qkw,qtw,dtl,dqw,dtv,gm,gh,sm,sh,qpe
 
     integer :: k
 !    real(kind_phys):: cc2,cc3,e1c,e2c,e3c,e4c,e5c
     real(kind_phys):: e6c,dzk,afk,abk,vtt,vqq,                             &
-         &cw25,clow,cupp,gamt,gamq,smd,gamv,elq,elh
+         &cw25,clow,cupp,gamt,gamq,smd,gamv,elq,elh,elqt
 
     real(kind_phys):: cldavg
     real(kind_phys), dimension(kts:kte), intent(in) :: theta
@@ -2520,7 +2526,7 @@ CONTAINS
 
     real(kind_phys):: auh,aum,adh,adm,aeh,aem,Req,Rsl,Rsl2,                &
            gmelq,sm20,sh20,sm25max,sh25max,sm25min,sh25min,                &
-           sm_pbl,sh_pbl,pblh2,wt,slht,mfmax
+           sm_pbl,sh_pbl,pblh2,wt,slht,mfmax,cpblh
 
     DOUBLE PRECISION  q2sq, t2sq, r2sq, c2sq, elsq, gmel, ghel
     DOUBLE PRECISION  q3sq, t3sq, r3sq, c3sq, dlsq, qdiv
@@ -2544,7 +2550,21 @@ CONTAINS
 !    e3c =  9.0*a2*a2*cc2*( 1.0-c5 )
 !    e4c = 12.0*a1*a2*cc2
 !    e5c =  6.0*a1*a1
-!
+
+    qkw  = zero
+    qtw  = zero
+    pblh2= max(pblh, 200._kind_phys)
+    if (closure .lt. 2.7) then
+       qpe = zero
+    else
+       do k = kts,kte
+          !Calculate qpe (twice tpe) as in Machulskaya and Mironov (2020, BLM), but with magnitudes
+          !tapered at low-levels to limit high 10-m wind speed biases:
+          cpblh  = min((zw(k)+0.1_kind_phys*pblh2)/(0.8_kind_phys*pblh2), one)
+          !qpe(k) = two * tsq(k) * gtr**2 * (half*(el(k+1)+el(k))/10.)**2/(half*max(0.01,qke(k)))
+          qpe(k) = min(two, max(zero, cpblh * two * tsq(k) * gtr**2 * taue**2))
+       enddo
+    endif
 
     CALL mym_level2 (kts,kte,                   &
     &            dz,                            &
@@ -2557,11 +2577,12 @@ CONTAINS
     &            dz, dx, zw,                    &
     &            rmol, flt, fltv, flq,          &
     &            vt, vq,                        &
-    &            u, v, qke,                     &
+    &            u, v, qke, qpe,                &
     &            dtv,                           &
     &            el,                            &
-    &            pblh,theta,                    &
-    &            qkw,Psig_bl,cldfra_bl1,        &
+    &            pblh, theta,                   &
+    &            qkw, qtw,                      &
+    &            Psig_bl, cldfra_bl1,           &
     &            bl_mynn_mixlength,             &
     &            edmf_w1,edmf_a1,               &
     &            edmf_w_dd1,edmf_a_dd1          )
@@ -2571,7 +2592,7 @@ CONTAINS
        dzk = half *( dz(k)+dz(k-1) )
        afk = dz(k)/( dz(k)+dz(k-1) )
        abk = one -afk
-       elsq = el (k)**2
+       elsq = el(k)**2
        q3sq = qkw(k)**2
        q2sq = b1*elsq*( sm(k)*gm(k)+sh(k)*gh(k) )
 
@@ -2685,7 +2706,7 @@ CONTAINS
           qdiv = one
           !Use level 2.5 stability functions
           sm(k) = q3sq*a1*( e3-3.0*c1*e4       )/eden
-        !  sm_pbl = q3sq*a1*( e3-3.0*c1*e4       )/eden
+          !  sm_pbl = q3sq*a1*( e3-3.0*c1*e4       )/eden
           !!JOE-Canuto/Kitamura mod
           !!sh(k) = q3sq*a2*( e2+3.0*c1*e5c*gmel )/eden
           sh(k) = q3sq*(a2*a2fac)*( e2+3.0*c1*e5c*gmel )/eden
@@ -2884,9 +2905,14 @@ CONTAINS
        ! impose minimum for clouds
        sm(k) = max(sm(k), 0.04_kind_phys*min(cldavg, half) )
        sh(k) = max(sh(k), 0.04_kind_phys*min(cldavg, half) )
-!
-       elq = el(k)*qkw(k)
-       elh = elq*qdiv
+       ! impose minimum sm for tte configurations. this may overide Pr limitations above.
+       if (closure .eq. 2.7) then
+          sm(k) = max(sm(k),min(0.1,max(zero,two*tsq(k))))
+       endif
+       !
+       elq   = el(k)*qkw(k)
+       elqt  = el(k)*qtw(k)  !for km with total turbulent energy; elq = elqt when closure < 2.7
+       elh   = elq*qdiv
 
        ! Production of TKE (pdk), T-variance (pdt),
        ! q-variance (pdq), and covariance (pdc)
@@ -2904,7 +2930,7 @@ CONTAINS
        qcd(k) = elq*gamq
 
        ! Eddy Diffusivity/Viscosity divided by dz
-       dfm(k) = elq*sm(k) / dzk
+       dfm(k) = elqt*sm(k) / dzk
        dfh(k) = elq*sh(k) / dzk
 !  Modified: Dec/22/2005, from here
 !   **  In sub.mym_predict, dfq for the TKE and scalar variance **
@@ -3032,8 +3058,7 @@ CONTAINS
 !! This subroutine predicts the turbulent quantities at the next step.
 SUBROUTINE  mym_predict (kts,kte,                                     &
      &            closure,                                            &
-     &            delt,                                               &
-     &            dz,                                                 &
+     &            delt, dz,                                           &
      &            ust, flt, flq, pmz, phh,                            &
      &            el,  dfq, rho,                                      &
      &            pdk, pdt, pdq, pdc,                                 &
@@ -3056,7 +3081,6 @@ real(kind_phys), dimension(kts:kte), intent(inout) :: pdk, pdt, pdq, pdc
 real(kind_phys), intent(in)    :: flt, flq, pmz, phh
 real(kind_phys), intent(in)    :: ust, delt
 real(kind_phys), dimension(kts:kte), intent(inout) :: qke,tsq, qsq, cov
-! WA 8/3/15
 real(kind_phys), dimension(kts:kte+1), intent(inout) :: s_awqke1,s_aw1
     
 !!  TKE budget  (Puhales, 2020, WRF 4.2.1)  << EOB 
@@ -3081,13 +3105,13 @@ ELSE
 ENDIF
 
 !   **  Strictly, vkz*h(i,j) -> karman*( 0.5*dz(1)*h(i,j)+z0 )  **
-vkz = karman*0.5*dz(kts)
+vkz = karman*half*dz(kts)
 !
 !   **  dfq for the TKE is 3.0*dfm.  **
 !
 DO k = kts,kte
 !   qke(k) = MAX(qke(k), zero)
-   qkw(k) = SQRT( MAX( qke(k), zero ) )
+   qkw(k) = SQRT( MAX( qke(k), qkemin ) )
    df3q(k)=Sqfac*dfq(k)
    dtz(k)=delt/dz(k)
 END DO
@@ -3102,7 +3126,7 @@ kmdz(kts)  =rhoz(kts)*dfq(kts)
 DO k=kts+1,kte
    rhoz(k)  =(rho(k)*dz(k-1) + rho(k-1)*dz(k))/(dz(k-1)+dz(k))
    rhoz(k)  =    MAX(rhoz(k),1E-4_kind_phys)
-   rhoinv(k)=one/MAX(rho(k),1E-4_kind_phys)
+   rhoinv(k)=one/MAX(rho(k) ,1E-4_kind_phys)
    kqdz(k)  = rhoz(k)*df3q(k) ! for TKE
    kmdz(k)  = rhoz(k)*dfq(k)  ! for T'2, q'2, and T'q'
 ENDDO
@@ -3113,10 +3137,10 @@ kmdz(kte+1)=rhoz(kte+1)*dfq(kte)
 if (bl_mynn_edmf == 1) then
    !stability criteria for mf
    DO k=kts+1,kte-1
-      kqdz(k) = MAX(kqdz(k),  0.5* s_aw1(k))
-      kqdz(k) = MAX(kqdz(k), -0.5*(s_aw1(k)-s_aw1(k+1)))
-      kmdz(k) = MAX(kmdz(k),  0.5* s_aw1(k))
-      kmdz(k) = MAX(kmdz(k), -0.5*(s_aw1(k)-s_aw1(k+1)))
+      kqdz(k) = MAX(kqdz(k),  half* s_aw1(k))
+      kqdz(k) = MAX(kqdz(k), -half*(s_aw1(k)-s_aw1(k+1)))
+      kmdz(k) = MAX(kmdz(k),  half* s_aw1(k))
+      kmdz(k) = MAX(kmdz(k), -half*(s_aw1(k)-s_aw1(k+1)))
 !      kqdz(k) = max(kqdz(k),  0.5*(s_aw1(k)+sd_aw1(k)))
 !      kqdz(k) = max(kqdz(k), -0.5*(s_aw1(k)-s_aw1(k+1)) -0.5*(sd_aw1(k)-sd_aw1(k+1)) )
 !      kmdz(k) = max(kmdz(k),  0.5*(s_aw1(k)+sd_aw1(k)))
@@ -3124,8 +3148,8 @@ if (bl_mynn_edmf == 1) then
    ENDDO
 endif
 
-pdk1 = 2.0*ust**3*pmz/( vkz )
-phm  = 2.0/ust   *phh/( vkz )
+pdk1 = two*ust**3*pmz/( vkz )
+phm  = two/ust   *phh/( vkz )
 pdt1 = phm*flt**2
 pdq1 = phm*flq**2
 pdc1 = phm*flt*flq
@@ -3217,25 +3241,25 @@ ENDDO
 !! TKE budget  (Puhales, 2020, WRF 4.2.1)  << EOB 
 IF (tke_budget .eq. 1) THEN
    !! TKE Vertical transport << EOBvt
-   tke_up=0.5*qke
-   dzinv=1./dz
+   tke_up=half*qke
+   dzinv=one/dz
    k=kts
-   qWT1(k)=dzinv(k)*(                                           &
-        &  (kqdz(k+1)*(tke_up(k+1)-tke_up(k))-kqdz(k)*tke_up(k)) &
-        &  + 0.5*rhoinv(k)*(s_aw1(k+1)*tke_up(k+1)               &
-        &  +      (s_aw1(k+1)-s_aw1(k))*tke_up(k)                &
+   qWT1(k)=dzinv(k)*(                                                &
+        &  (kqdz(k+1)*(tke_up(k+1)-tke_up(k))-kqdz(k)*tke_up(k))     &
+        &  + half*rhoinv(k)*(s_aw1(k+1)*tke_up(k+1)                  &
+        &  +      (s_aw1(k+1)-s_aw1(k))*tke_up(k)                    &
         &  +      (s_awqke1(k)-s_awqke1(k+1)))*onoff) !unstaggered
    DO k=kts+1,kte-1
-      qWT1(k)=dzinv(k)*(                                       &
+      qWT1(k)=dzinv(k)*(                                             &
             & (kqdz(k+1)*(tke_up(k+1)-tke_up(k))-kqdz(k)*(tke_up(k)-tke_up(k-1))) &
-            &  + 0.5*rhoinv(k)*(s_aw1(k+1)*tke_up(k+1)               &
+            &  + half*rhoinv(k)*(s_aw1(k+1)*tke_up(k+1)              &
             &  +      (s_aw1(k+1)-s_aw1(k))*tke_up(k)                &
             &  -                  s_aw1(k)*tke_up(k-1)               &
             &  +      (s_awqke1(k)-s_awqke1(k+1)))*onoff) !unstaggered
    ENDDO
    k=kte
-   qWT1(k)=dzinv(k)*(-kqdz(k)*(tke_up(k)-tke_up(k-1))           &
-       &  + 0.5*rhoinv(k)*(-s_aw1(k)*tke_up(k)-s_aw1(k)*tke_up(k-1)+s_awqke1(k))*onoff) !unstaggered
+   qWT1(k)=dzinv(k)*(-kqdz(k)*(tke_up(k)-tke_up(k-1))                &
+       &  + half*rhoinv(k)*(-s_aw1(k)*tke_up(k)-s_aw1(k)*tke_up(k-1)+s_awqke1(k))*onoff) !unstaggered
    !!  >> EOBvt
    qDISS1=bp*tke_up !! TKE dissipation rate !unstaggered
 END IF
@@ -3245,7 +3269,7 @@ END IF
 
        !   **  Prediction of the moisture variance  **
        DO k = kts,kte-1
-          b2l   = b2*0.5*( el(k+1)+el(k) )
+          b2l   = b2*half*( el(k+1)+el(k) )
           bp(k) = two*qkw(k) / b2l
           rp(k) = pdq(k+1) + pdq(k)
        END DO
@@ -3259,22 +3283,22 @@ END IF
        ! Since dfq(kts)=0.0, a(1)=0.0 and b(1)=1.+dtz(k)*dfq(k+1)+bp(k)*delt.
        DO k=kts,kte-1
           a(k)=   - dtz(k)*kmdz(k)*rhoinv(k)
-          b(k)=1. + dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k) + bp(k)*delt
+          b(k)=one+ dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k) + bp(k)*delt
           c(k)=   - dtz(k)*kmdz(k+1)*rhoinv(k)
-          d(k)=rp(k)*delt + qsq(k)
+          d(k)=rp(k)*delt + max(zero, qsq(k))
        ENDDO
 
        a(kte)=-1. !0.
-       b(kte)=1.
-       c(kte)=0.
-       d(kte)=0.
+       b(kte)=one
+       c(kte)=zero
+       d(kte)=zero
 
 !       CALL tridiag(kte,a,b,c,d)
     CALL tridiag2(kte,a,b,c,d,x)
        
        DO k=kts,kte
           !qsq(k)=d(k-kts+1)
-          qsq(k)=MAX(x(k),1e-17)
+          qsq(k)=MAX(x(k),1e-17_kind_phys)
        ENDDO
     ELSE
        !level 2.5 - use level 2 diagnostic
@@ -3290,14 +3314,14 @@ END IF
     END IF
 !!!!!!!!!!!!!!!!!!!!!!end level 2.6   
 
-    IF ( closure .GE. 3.0 ) THEN
+    IF ( closure .GE. 2.7 ) THEN
 !
 !   **  dfq for the scalar variance is 1.0*dfm.  **
 !
 !   **  Prediction of the temperature variance  **
 !!       DO k = kts+1,kte-1
        DO k = kts,kte-1
-          b2l = b2*0.5*( el(k+1)+el(k) )
+          b2l   = b2*half*( el(k+1)+el(k) )
           bp(k) = two*qkw(k) / b2l
           rp(k) = pdt(k+1) + pdt(k) 
        END DO
@@ -3317,9 +3341,9 @@ END IF
           !d(k-kts+1)=rp(k)*delt + tsq(k)
 !JOE 8/22/20 improve conservation
           a(k)=   - dtz(k)*kmdz(k)*rhoinv(k)
-          b(k)=1. + dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k) + bp(k)*delt
+          b(k)=one+ dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k) + bp(k)*delt
           c(k)=   - dtz(k)*kmdz(k+1)*rhoinv(k)
-          d(k)=rp(k)*delt + tsq(k)
+          d(k)=rp(k)*delt + max(zero, tsq(k))
        ENDDO
 
 !!       DO k=kts+1,kte-1
@@ -3330,28 +3354,40 @@ END IF
 !!       ENDDO
 
        a(kte)=-1. !0.
-       b(kte)=1.
-       c(kte)=0.
-       d(kte)=0.
+       b(kte)=one
+       c(kte)=zero
+       d(kte)=zero
        
 !       CALL tridiag(kte,a,b,c,d)
        CALL tridiag2(kte,a,b,c,d,x)
 
        DO k=kts,kte
-!          tsq(k)=d(k-kts+1)
-           tsq(k)=x(k)
+          !tsq(k)=d(k-kts+1)
+          tsq(k)=max(zero,x(k))
        ENDDO
-
-!   **  Prediction of the temperature-moisture covariance  **
-!!       DO k = kts+1,kte-1
+    ELSE
+       !less than level 2.7 - default to level 2 diagnostic
        DO k = kts,kte-1
-          b2l = b2*0.5*( el(k+1)+el(k) )
+          IF ( qkw(k) .LE. zero ) THEN
+             b2l = zero
+          ELSE
+             b2l = b2*0.25*( el(k+1)+el(k) )/qkw(k)
+          END IF
+          tsq(k) = b2l*( pdt(k+1)+pdt(k) )
+       END DO
+       tsq(kte)=tsq(kte-1)
+    ENDIF
+
+    !Full level 3 closure
+    IF ( closure .GE. 3.0 ) THEN
+!   **  Prediction of the temperature-moisture covariance  **
+       DO k = kts,kte-1
+          b2l = b2*half*( el(k+1)+el(k) )
           bp(k) = two*qkw(k) / b2l
           rp(k) = pdc(k+1) + pdc(k) 
        END DO
        
 !zero gradient for tqcov at bottom and top
-       
 !!       a(1)=0.
 !!       b(1)=1.
 !!       c(1)=-1.
@@ -3365,7 +3401,7 @@ END IF
           !d(k-kts+1)=rp(k)*delt + cov(k)
 !JOE 8/22/20 improve conservation
           a(k)=   - dtz(k)*kmdz(k)*rhoinv(k)
-          b(k)=1. + dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k) + bp(k)*delt
+          b(k)=one+ dtz(k)*(kmdz(k)+kmdz(k+1))*rhoinv(k) + bp(k)*delt
           c(k)=   - dtz(k)*kmdz(k+1)*rhoinv(k)
           d(k)=rp(k)*delt + cov(k)
        ENDDO
@@ -3378,12 +3414,12 @@ END IF
 !!       ENDDO
 
        a(kte)=-1. !0.
-       b(kte)=1.
-       c(kte)=0.
-       d(kte)=0.
+       b(kte)=one
+       c(kte)=zero
+       d(kte)=zero
 
 !       CALL tridiag(kte,a,b,c,d)
-    CALL tridiag2(kte,a,b,c,d,x)
+       CALL tridiag2(kte,a,b,c,d,x)
        
        DO k=kts,kte
 !          cov(k)=d(k-kts+1)
@@ -3399,12 +3435,8 @@ END IF
           ELSE
              b2l = b2*0.25*( el(k+1)+el(k) )/qkw(k)
           END IF
-!
-          tsq(k) = b2l*( pdt(k+1)+pdt(k) )
           cov(k) = b2l*( pdc(k+1)+pdc(k) )
        END DO
-       
-       tsq(kte)=tsq(kte-1)
        cov(kte)=cov(kte-1)
       
     END IF
@@ -3460,7 +3492,8 @@ END IF
     &            cldfra_bl1,               &
     &            PBLH1,HFX1,               &
     &            Vt, Vq, th, sgm,          &
-    &            spp_pbl,pattern_spp_pbl1  )
+    &            closure,                  &
+    &            spp_pbl, pattern_spp_pbl1 )
 
 !-------------------------------------------------------------------
 
@@ -3472,7 +3505,7 @@ END IF
 #endif
 
     real(kind_phys), intent(in)      :: HFX1,xland
-    real(kind_phys), intent(in)      :: dx,pblh1
+    real(kind_phys), intent(in)      :: dx,pblh1,closure
     real(kind_phys), dimension(kts:kte), intent(in) :: dz
     real(kind_phys), dimension(kts:kte+1), intent(in) :: zw
     real(kind_phys), dimension(kts:kte), intent(in) :: p,exner,thl,qw,   &
@@ -3701,6 +3734,9 @@ END IF
            !Use the form of Eq. (6) in Chaboureau and Bechtold (2002)
            !except neglect all but the first term for sig_r
            r3sq   = max( qsq(k), zero )
+           t3sq   = max( tsq(k), zero )
+           if (closure .ge. 2.7) r3sq = r3sq +bet(k)**2*t3sq
+           
            !Calculate sigma using higher-order moments:
            sgm(k) = max(1e-13, sqrt( real(r3sq,kind_phys) ))
            !Set constraints on sigma relative to total water

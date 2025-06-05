@@ -254,18 +254,17 @@
 
 MODULE module_bl_mynnedmf
 
- use module_bl_mynnedmf_common,only:                    &
-       cp        , cpv       , cliq       , cice      , &
-       p608      , ep_2      , ep_3       , gtr       , &
-       grav      , g_inv     , karman     , p1000mb   , &
-       rcp       , r_d       , r_v        , rk        , &
-       rvovrd    , svp1      , svp2       , svp3      , &
-       xlf       , xlv       , xls        , xlscp     , &
-       xlvcp     , tv0       , tv1        , tref      , &
-       zero      , half      , one        , two       , &
-       onethird  , twothirds , tkmin      , t0c       , &
-       tice      , wfa_max   , wfa_min    , ifa_max   , &
-       ifa_min   , wfa_ht    , ifa_ht     , kind_phys
+ use module_bl_mynnedmf_common,only:                     &
+       cp         , cpv       , cliq       , cice      , &
+       p608       , ep_2      , ep_3       , gtr       , &
+       grav       , g_inv     , karman     , p1000mb   , &
+       rcp        , r_d       , r_v        , rk        , &
+       rvovrd     , svp1      , svp2       , svp3      , &
+       xlf        , xlv       , xls        , xlscp     , &
+       xlvcp      , tv0       , tv1        , tref      , &
+       tkmin      , t0c       , tice       , wfa_max   , &
+       wfa_min    , ifa_max   , ifa_min    , wfa_ht    , &
+       ifa_ht     , kind_phys
 
  IMPLICIT NONE
 
@@ -300,6 +299,27 @@ MODULE module_bl_mynnedmf
       &e4c = 12.0*a1*a2*cc2,    &
       &e5c =  6.0*a1*a1
 
+  real(kind_phys), parameter ::  &
+      &zero           =  0.0,    &
+      &one            =  1.0,    &
+      &two            =  2.0,    &
+      &three          =  3.0,    &
+      &four           =  4.0,    &
+      &five           =  5.0,    &
+      &six            =  6.0,    &
+      &seven          =  7.0,    &
+      &eight          =  8.0,    &
+      &nine           =  9.0,    &
+      &ten            = 10.0,    &
+      &quarter        =  0.25,   &
+      &half           =  0.5,    &
+      &onethird       =  1.0/3.0,&
+      &twothirds      =  2.0/3.0,&
+      &twenty         = 20.0,    &
+      &thirty         = 30.0,    &
+      &fifty          = 50.0,    &
+      &hundred        =100.0
+
 ! Constants for min tke in elt integration (qmin), max z/L in els (zmax), 
 ! and factor for eddy viscosity for TKE (Kq = Sqfac*Km):
  real(kind_phys), parameter :: qmin=0.0, zmax=1.0, Sqfac=3.0
@@ -332,7 +352,7 @@ MODULE module_bl_mynnedmf
 
 !>Parameter used for the conversion of tsq to qpe when using the closures that support 
 !!total turbulent energy (levels 2.7 and 3.0):
-  real(kind_phys), parameter :: taue=80. !100.
+  real(kind_phys), parameter :: taue=80.
  
 !>Option to control implicit/explicit mass-flux tendencies when
 !>bl_mynn_edmf = 2  (0: mass flux inactive, 1: implicit, 2: explicit)
@@ -714,7 +734,7 @@ CONTAINS
           !simple PBLH form of Koracin and Berkowicz (1988, BLM)
           !to linearly taper off tke towards top of PBL.
           do k=kts,kte
-             qke1(k)=5.0 * ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
+             qke1(k)=five * ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
           enddo
        endif
 
@@ -743,7 +763,8 @@ CONTAINS
             &PBLH, th1, thv1, thlv1,        &
             &sh1, sm1,                      &
             &ust, rmol,                     &
-            &el1, qke1, tsq1, qsq1, cov1,   &
+            &el1, qke1,                     &
+            &tsq1, qsq1, cov1,              &
             &Psig_bl, cldfra_bl1,           &
             &bl_mynn_mixlength,             &
             &edmf_w1,edmf_a1,               &
@@ -1342,7 +1363,8 @@ CONTAINS
 !       &            ust, rmo, pmz, phh, flt, flq,             &
        &            zi, theta, thv, thlv, sh, sm,             &
        &            ust, rmol, el,                            &
-       &            Qke, Tsq, Qsq, Cov, Psig_bl, cldfra_bl1,  &
+       &            Qke, Tsq, Qsq, Cov,                       &
+       &            Psig_bl, cldfra_bl1,                      &
        &            bl_mynn_mixlength,                        &
        &            edmf_w1,edmf_a1,                          &
        &            edmf_w_dd1,edmf_a_dd1,                    &
@@ -1369,6 +1391,7 @@ CONTAINS
     integer :: k,l,lmax
     real(kind_phys):: phm,vkz,elq,elv,b1l,b2l,pmz=1.,phh=1.,     &
          &flt=0.,fltv=0.,flq=0.,tmpq
+    real(kind_phys):: ustm
     real(kind_phys), dimension(kts:kte) :: theta,thv
     real(kind_phys), dimension(kts:kte) :: pattern_spp_pbl1
     integer ::spp_pbl
@@ -1381,6 +1404,7 @@ CONTAINS
        qkw(k)= zero
        qtw(k)= zero
     END DO
+    ustm = max(0.01_kind_phys, ust)
 !
 !> - Call mym_level2() to calculate the stability functions at level 2.
     CALL mym_level2 ( kts,kte,                      &
@@ -1394,19 +1418,19 @@ CONTAINS
     el(kts) = zero
     IF (INITIALIZE_QKE) THEN
        !qke(kts) = ust**2 * ( b1*pmz )**(2.0/3.0)
-       qke(kts) = 1.5 * ust**2 * ( b1*pmz )**(2.0/3.0)
+       qke(kts) = 1.5 * ustm**2 * ( b1*pmz )**(2.0/3.0)
        DO k = kts+1,kte
           !qke(k) = 0.0
           !linearly taper off towards top of pbl
-          qke(k)=qke(kts)*MAX((ust*700. - zw(k))/(MAX(ust,0.01)*700.), 0.01)
+          qke(k)=qke(kts)*MAX((ust*700. - zw(k))/(ustm*700.), 0.01)
        ENDDO
     ENDIF
 !
     phm      = phh*b2 / ( b1*pmz )**onethird
-    tsq(kts) = phm*( max(zero,flt)/ust )**2
-    qsq(kts) = phm*( max(zero,flq)/ust )**2
-    cov(kts) = phm*( flt/ust )*( flq/ust )
-    qpe(kts) = min(two, max(zero, two * tsq(kts) * gtr**2 * taue**2))
+    tsq(kts) = min(three,          phm*( max(zero,flt)/ustm )**2)
+    qsq(kts) = min(5e-6_kind_phys, phm*( max(zero,flq)/ustm )**2)
+    cov(kts) = phm*( flt/ustm )*( flq/ustm )
+    qpe(kts) = min(three, max(zero, two * tsq(kts) * gtr**2 * taue**2))
 !
     DO k = kts+1,kte
        vkz = karman*zw(k)
@@ -1455,14 +1479,14 @@ CONTAINS
        elv = half*( el(kts+1)+el(kts) ) /  vkz
        IF (INITIALIZE_QKE)THEN 
           !qke(kts) = ust**2 * ( b1*pmz*elv    )**(2.0/3.0)
-          qke(kts) = one * MAX(ust,0.02)**2 * ( b1*pmz*elv    )**twothirds 
+          qke(kts) = one * ustm**2 * ( b1*pmz*elv    )**twothirds 
        ENDIF
 
        phm      = phh*b2 / ( b1*pmz/elv**2 )**onethird
-       tsq(kts) = phm*( max(zero,flt)/ust )**2
-       qsq(kts) = phm*( max(zero,flq)/ust )**2
-       cov(kts) = phm*( flt/ust )*( flq/ust )
-
+       tsq(kts) = min(three,          phm*( max(zero,flt)/ustm )**2)
+       qsq(kts) = min(5e-6_kind_phys, phm*( max(zero,flq)/ustm )**2)
+       cov(kts) = phm*( flt/ustm )*( flq/ustm )
+       
        DO k = kts+1,kte-1
           b1l = b1*0.25*( el(k+1)+el(k) )
           !tmpq=MAX(b1l*( pdk(k+1)+pdk(k) ),qkemin)
@@ -1479,8 +1503,8 @@ CONTAINS
              b2l = b2*( b1l/b1 ) / SQRT( qke(k) )
           END IF
 
-          tsq(k) = b2l*( pdt(k+1)+pdt(k) )
-          qsq(k) = b2l*( pdq(k+1)+pdq(k) )
+          tsq(k) = min(three,          max(zero, b2l*( pdt(k+1)+pdt(k) )))
+          qsq(k) = min(5e-6_kind_phys, max(zero, b2l*( pdq(k+1)+pdq(k) )))
           cov(k) = b2l*( pdc(k+1)+pdc(k) )
        END DO
 
@@ -1744,7 +1768,7 @@ CONTAINS
         cns  = 2.7
         alp1 = 0.23
         alp2 = one
-        alp3 = 5.0
+        alp3 = five
         alp4 = 100.
         alp5 = 0.3
 
@@ -1822,16 +1846,16 @@ CONTAINS
 
         !wt_u* are for hurricane tuning, meant to reduce diffusion in hurricanes
         ugrid = sqrt(u1(kts)**2 + v1(kts)**2)
-        uonset= 20._kind_phys
-        wt_u1 = one - 0.2*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.8
-        wt_u2 = one - 0.4*min(one, max(zero, ugrid - uonset)/50.0) !reduce to 0.6
+        uonset= twenty
+        wt_u1 = one - 0.2*min(one, max(zero, ugrid - uonset)/fifty) !reduce to 0.8
+        wt_u2 = one - 0.4*min(one, max(zero, ugrid - uonset)/fifty) !reduce to 0.6
         cns   = 3.5_kind_phys
         alp1  = 0.23_kind_phys
         alp2  = 0.3_kind_phys
         alp3  = 2.5_kind_phys * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
         alp4  = 15.0_kind_phys
         alp5  = 0.3_kind_phys
-        alp6  = 50._kind_phys
+        alp6  = fifty
 
         ! Impose limits on the height integration for elt and the transition layer depth
         pblh2= max(pblh,300._kind_phys) !minpblh)
@@ -1868,7 +1892,7 @@ CONTAINS
         END DO
 
         if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
-           elt_max=350.+100.*min(one, max(zero, ugrid - 50.0)/25.0)
+           elt_max=350.+100.*min(one, max(zero, ugrid - fifty)/25.0)
         else
            elt_max=400._kind_phys
         endif
@@ -1911,7 +1935,7 @@ CONTAINS
               elf    = elb
            ENDIF
 
-           z_m = MAX(karman, zwk - 4._kind_phys)
+           z_m = MAX(karman, zwk - four)
            !   **  Length scale in the surface layer  **
            IF ( rmol .GT. 0.0 ) THEN
               els  = karman*zwk/(one+cns*MIN( zwk*rmol, zmax ))
@@ -1955,7 +1979,7 @@ CONTAINS
         alp1 = 0.22_kind_phys
         alp2 = 0.30_kind_phys
         alp3 = 2.5_kind_phys
-        alp4 = 5.0_kind_phys
+        alp4 = five
         alp5 = alp2 !like alp2, but for free atmosphere
         alp6 = 50.0_kind_phys !used for MF mixing length
 
@@ -1995,7 +2019,7 @@ CONTAINS
            zwk = zw(k)
         END DO
 
-        elt = MIN( MAX(alp1*elt/vsc, 10.), 400.)
+        elt = MIN( MAX(alp1*elt/vsc, ten), 400.)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt +( vq(kts)+tv0 )*flq
         vflx = fltv
@@ -2055,14 +2079,14 @@ CONTAINS
               !minimize influence of surface heat flux on tau far away from the PBLH.
               wt        = half*TANH((zwk - (pblh2+h1))/h2) + half
               !tau_cloud = tau_cloud*(1.-wt) + 50.*wt
-              tau_cloud = tau_cloud*(1.-wt) + MAX(100.,dzk*0.25)*wt
+              tau_cloud = tau_cloud*(one-wt) + MAX(100.,dzk*0.25)*wt
 
               elb       = MIN(tau_cloud*SQRT(MIN(qtke(k),40.)), zwk)
               !elf = elb
               elf       = elb !/(1. + (elb/800.))  !bound free-atmos mixing length to < 800 m.
               elb_mf    = elb
          END IF
-         elf    = elf/(1. + (elf/800.))  !bound free-atmos mixing length to < 800 m.
+         elf    = elf/(one + (elf/800.))  !bound free-atmos mixing length to < 800 m.
          elb_mf = MAX(elb_mf, 0.01) !to avoid divide-by-zero below
 
          !   **  Length scale in the surface layer  **
@@ -2076,16 +2100,16 @@ CONTAINS
          wt=half*TANH((zwk - (pblh2+h1))/h2) + half
 
          !try squared-blending
-         el(k) = SQRT( els**2/(1. + (els**2/elt**2) +(els**2/elb_mf**2)))
-         el(k) = el(k)*(1.-wt) + elf*wt
+         el(k) = SQRT( els**2/(one + (els**2/elt**2) +(els**2/elb_mf**2)))
+         el(k) = el(k)*(one-wt) + elf*wt
        END DO
 
     END SELECT
 
     ! include scale-awareness. limit el to be < 0.25*dz)
     DO k = kts+1,kte
-       el_les = 0.25*half*( dz(k)+dz(k-1) )
-       el(k)  = el(k)*Psig_bl + (1.-Psig_bl)*min(el_les,el(k))
+       el_les = quarter*half*( dz(k)+dz(k-1) )
+       el(k)  = el(k)*Psig_bl + (one-Psig_bl)*min(el_les,el(k))
     ENDDO
       
 #ifdef HARDCODE_VERTICAL
@@ -2589,9 +2613,9 @@ CONTAINS
 !
 
     DO k = kts+1,kte
-       dzk = half *( dz(k)+dz(k-1) )
-       afk = dz(k)/( dz(k)+dz(k-1) )
-       abk = one -afk
+       dzk  = half *( dz(k)+dz(k-1) )
+       afk  = dz(k)/( dz(k)+dz(k-1) )
+       abk  = one -afk
        elsq = el(k)**2
        q3sq = qkw(k)**2
        q2sq = b1*elsq*( sm(k)*gm(k)+sh(k)*gh(k) )
@@ -2620,7 +2644,7 @@ CONTAINS
        !TZC - Kondo Correction
        if (ri >= one) then
           ! Kh/Km = 1/(7*Ri)
-          Prlim = min(7._kind_phys*ri, Prlimit_fre)
+          Prlim = min(seven*ri, Prlimit_fre)
        elseif (ri >= 0.01 .and. ri <= one) then
           ! Kh/Km(i,k) = 1/(6.873*Ri + 1/(6.873*Ri))
           Prlim = min(6.873_kind_phys*ri + one/(6.873_kind_phys*ri), Prlimit_fre)
@@ -2705,17 +2729,17 @@ CONTAINS
 
           qdiv = one
           !Use level 2.5 stability functions
-          sm(k) = q3sq*a1*( e3-3.0*c1*e4       )/eden
+          sm(k) = q3sq*a1*( e3-three*c1*e4       )/eden
           !  sm_pbl = q3sq*a1*( e3-3.0*c1*e4       )/eden
           !!JOE-Canuto/Kitamura mod
           !!sh(k) = q3sq*a2*( e2+3.0*c1*e5c*gmel )/eden
-          sh(k) = q3sq*(a2*a2fac)*( e2+3.0*c1*e5c*gmel )/eden
+          sh(k) = q3sq*(a2*a2fac)*( e2+three*c1*e5c*gmel )/eden
        END IF !end Helfand & Labraga check
 
        !Impose broad limits on Sh and Sm:
        gmelq    = max(real(gmel/q3sq, kind_phys), 1e-8_kind_phys)
-       sm25max  = 4._kind_phys  !MIN(sm20*3.0, SQRT(.1936/gmelq))
-       sh25max  = 4._kind_phys  !MIN(sh20*3.0, 0.76*b2)
+       sm25max  = four  !MIN(sm20*3.0, SQRT(.1936/gmelq))
+       sh25max  = four  !MIN(sh20*3.0, 0.76*b2)
        sm25min  = zero !MAX(sm20*0.1, 1e-6)
        sh25min  = zero !MAX(sh20*0.1, 1e-6)
 
@@ -2731,8 +2755,8 @@ CONTAINS
            print*," q2sq=",q2sq," q3sq=",q3sq, q3sq/q2sq
            print*," qke=",qke(k)," el=",el(k)
            print*," PBLH=",pblh," u=",u(k)," v=",v(k)
-           print*," SMnum=",q3sq*a1*( e3-3.0*c1*e4)," SMdenom=",eden
-           print*," SHnum=",q3sq*(a2*a2fac)*( e2+3.0*c1*e5c*gmel ),&
+           print*," SMnum=",q3sq*a1*( e3-three*c1*e4)," SMdenom=",eden
+           print*," SHnum=",q3sq*(a2*a2fac)*( e2+three*c1*e5c*gmel ),&
                   " SHdenom=",eden
          ENDIF
        ENDIF
@@ -2779,17 +2803,17 @@ CONTAINS
           ! to calculate an exact limit for c3sq:
           auh = 27._kind_phys*a1*((a2*a2fac)**2)*b2*(gtr)**2
           aum = 54._kind_phys*(a1**2)*(a2*a2fac)*b2*c1*(gtr)
-          adh = 9._kind_phys*a1*((a2*a2fac)**2)*(12._kind_phys*a1 + 3._kind_phys*b2)*(gtr)**2
-          adm = 18._kind_phys*(a1**2)*(a2*a2fac)*(b2 - 3._kind_phys*(a2*a2fac))*(gtr)
+          adh = nine*a1*((a2*a2fac)**2)*(12._kind_phys*a1 + three*b2)*(gtr)**2
+          adm = 18._kind_phys*(a1**2)*(a2*a2fac)*(b2 - three*(a2*a2fac))*(gtr)
 
-          aeh = (9._kind_phys*a1*((a2*a2fac)**2)*b1 +9._kind_phys*a1*((a2*a2fac)**2)*         &
-                (12._kind_phys*a1 + 3._kind_phys*b2))*(gtr)
-          aem = 3._kind_phys*a1*(a2*a2fac)*b1*(3._kind_phys*(a2*a2fac) + 3._kind_phys*b2*c1 + &
-                (18._kind_phys*a1*c1 - b2)) +                                                 &
-                (18._kind_phys)*(a1**2)*(a2*a2fac)*(b2 - 3._kind_phys*(a2*a2fac))
+          aeh = (nine*a1*((a2*a2fac)**2)*b1 +nine*a1*((a2*a2fac)**2)*            &
+                (12._kind_phys*a1 + three*b2))*(gtr)
+          aem = three*a1*(a2*a2fac)*b1*(three*(a2*a2fac) + three*b2*c1 +         &
+                (18._kind_phys*a1*c1 - b2)) +                                    &
+                (18._kind_phys)*(a1**2)*(a2*a2fac)*(b2 - three*(a2*a2fac))
 
           Req = -aeh/aem
-          Rsl = (auh + aum*Req)/(3._kind_phys*adh + 3._kind_phys*adm*Req)
+          Rsl = (auh + aum*Req)/(three*adh + three*adm*Req)
           !For now, use default values, since tests showed little/no sensitivity
           Rsl = 0.12_kind_phys   !lower limit
           Rsl2= one - two*Rsl    !upper limit
@@ -2907,7 +2931,7 @@ CONTAINS
        sh(k) = max(sh(k), 0.04_kind_phys*min(cldavg, half) )
        ! impose minimum sm for tte configurations. this may overide Pr limitations above.
        if (closure .eq. 2.7) then
-          sm(k) = max(sm(k),min(0.1,max(zero,two*tsq(k))))
+          sm(k) = max(sm(k),min(0.2_kind_phys, max(zero,three*qpe(k))))
        endif
        !
        elq   = el(k)*qkw(k)
@@ -2916,14 +2940,14 @@ CONTAINS
 
        ! Production of TKE (pdk), T-variance (pdt),
        ! q-variance (pdq), and covariance (pdc)
-       pdk(k) = elq*( sm(k)*gm(k)                &
+       pdk(k) = elq *(sm(k)*gm(k)                &
             &        +sh(k)*gh(k)+gamv ) +       &
             &   half*TKEprod_dn(k)       +       & ! xmchen
             &   half*TKEprod_up(k)
-       pdt(k) = elh*( sh(k)*dtl(k)+gamt )*dtl(k)
-       pdq(k) = elh*( sh(k)*dqw(k)+gamq )*dqw(k)
-       pdc(k) = elh*( sh(k)*dtl(k)+gamt )*dqw(k)*half &
-            & + elh*( sh(k)*dqw(k)+gamq )*dtl(k)*half
+       pdt(k) = elh *( sh(k)*dtl(k)+gamt )*dtl(k)
+       pdq(k) = elh *( sh(k)*dqw(k)+gamq )*dqw(k)
+       pdc(k) = elh *( sh(k)*dtl(k)+gamt )*dqw(k)*half &
+            & + elh *( sh(k)*dqw(k)+gamq )*dtl(k)*half
 
        ! Contergradient terms
        tcd(k) = elq*gamt
@@ -3115,7 +3139,7 @@ DO k = kts,kte
    df3q(k)=Sqfac*dfq(k)
    dtz(k)=delt/dz(k)
 END DO
-!
+
 !JOE-add conservation + stability criteria
 !Prepare "constants" for diffusion equation.
 !khdz = rho*Kh/dz = rho*dfh
@@ -3187,14 +3211,14 @@ if (bl_mynn_edmf > 1) then
     a(1)=zero
     b(1)=one + dtz(k)*kqdz(k+1)*rhoinv(k) + bp(k)*delt
     c(1)=    - dtz(k)*kqdz(k+1)*rhoinv(k)
-    d(1)=qke(k) + rp(k)*delt                                    &
+    d(1)=max(qkemin, qke(k)) + rp(k)*delt                        &
         &    - dtz(k)*(upcont(k+1)+dncont(k+1))
 
     DO k=kts+1,kte-1
        a(k)=   - dtz(k)*kqdz(k)*rhoinv(k)
        b(k)=one+ dtz(k)*(kqdz(k)+kqdz(k+1))*rhoinv(k) + bp(k)*delt
        c(k)=   - dtz(k)*kqdz(k+1)*rhoinv(k)
-       d(k)=qke(k) + rp(k)*delt                                 &
+       d(k)=max(qkemin, qke(k)) + rp(k)*delt                     &
           &    - dtz(k)*(upcont(k+1)-upcont(k)+dncont(k+1)-dncont(k))
     ENDDO
 
@@ -3298,7 +3322,7 @@ END IF
        
        DO k=kts,kte
           !qsq(k)=d(k-kts+1)
-          qsq(k)=MAX(x(k),1e-17_kind_phys)
+          qsq(k)=min(5e-6_kind_phys, max(x(k),1e-17_kind_phys))
        ENDDO
     ELSE
        !level 2.5 - use level 2 diagnostic
@@ -3308,7 +3332,7 @@ END IF
           ELSE
              b2l = b2*0.25*( el(k+1)+el(k) )/qkw(k)
           END IF
-          qsq(k) = b2l*( pdq(k+1)+pdq(k) )
+          qsq(k) = min(5e-6_kind_phys, max(1e-17_kind_phys, b2l*( pdq(k+1)+pdq(k) )))
        END DO
        qsq(kte)=qsq(kte-1)
     END IF
@@ -3363,7 +3387,7 @@ END IF
 
        DO k=kts,kte
           !tsq(k)=d(k-kts+1)
-          tsq(k)=max(zero,x(k))
+          tsq(k)=min(three, max(zero,x(k)))
        ENDDO
     ELSE
        !less than level 2.7 - default to level 2 diagnostic
@@ -3373,7 +3397,7 @@ END IF
           ELSE
              b2l = b2*0.25*( el(k+1)+el(k) )/qkw(k)
           END IF
-          tsq(k) = b2l*( pdt(k+1)+pdt(k) )
+          tsq(k) = min(three, max(zero, b2l*( pdt(k+1)+pdt(k) )))
        END DO
        tsq(kte)=tsq(kte-1)
     ENDIF

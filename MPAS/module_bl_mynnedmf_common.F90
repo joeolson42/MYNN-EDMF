@@ -44,12 +44,6 @@
 ! real:: rvovrd       != r_v/r_d != 1.608
 
 ! Specified locally
- real(kind_phys),parameter:: zero   = 0.0
- real(kind_phys),parameter:: half   = 0.5
- real(kind_phys),parameter:: one    = 1.0
- real(kind_phys),parameter:: two    = 2.0
- real(kind_phys),parameter:: onethird  = 1./3.
- real(kind_phys),parameter:: twothirds = 2./3.
  real(kind_phys),parameter:: tref  = 300.0   ! reference temperature (K)
  real(kind_phys),parameter:: TKmin = 253.0   ! for total water conversion, Tripoli and Cotton (1981)
 ! real(kind_phys),parameter:: p1000mb=100000.0

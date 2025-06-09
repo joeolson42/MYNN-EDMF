@@ -311,14 +311,17 @@ MODULE module_bl_mynnedmf
       &eight          =  8.0,    &
       &nine           =  9.0,    &
       &ten            = 10.0,    &
-      &quarter        =  0.25,   &
-      &half           =  0.5,    &
-      &onethird       =  1.0/3.0,&
-      &twothirds      =  2.0/3.0,&
       &twenty         = 20.0,    &
       &thirty         = 30.0,    &
       &fifty          = 50.0,    &
-      &hundred        =100.0
+      &hundred        =100.0,    &
+      &p1             =  0.1,    &
+      &p2             =  0.2,    &
+      &p25            =  0.25,   &
+      &p3             =  0.3,    &
+      &p333           =  1.0/3.0,&
+      &p5             =  0.5,    &
+      &p666           =  2.0/3.0
 
 ! Constants for min tke in elt integration (qmin), max z/L in els (zmax), 
 ! and factor for eddy viscosity for TKE (Kq = Sqfac*Km):

@@ -543,7 +543,7 @@
             sqc1            = sqc1          , sqi1        = sqi1          , sqs1        = sqs1         , &
             qnc1            = qnc1          , qni1        = qni1          , qnwfa1      = qnwfa1       , &
             qnifa1          = qnifa1        , qnbca1      = qnbca1        , ozone1      = ozone1       , &
-            p1              = p1            , ex1         = ex1           , rho1        = rho1         , &
+            pres1           = p1            , ex1         = ex1           , rho1        = rho1         , &
             tk1             = tk1           , xland       = xland1        , ts          = ts1          , &
             qsfc            = qsfc1         , ps          = ps1           , ust         = ust1         , &
             ch              = ch1           , hfx         = hfx1          , qfx         = qfx1         , &

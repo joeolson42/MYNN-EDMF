@@ -49,7 +49,7 @@
                   bl_mynn_closure   , bl_mynn_stfunc    , bl_mynn_topdown    , bl_mynn_scaleaware , &
                   bl_mynn_dheat_opt , bl_mynn_edmf      , bl_mynn_edmf_dd    , bl_mynn_edmf_mom   , &
                   bl_mynn_edmf_tke  , bl_mynn_output    , bl_mynn_mixscalars , bl_mynn_mixaerosols, &
-                  bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      ,                      &
+                  bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      , bl_mynn_mss        , &
                   errmsg            , errflg                                                        &
 #if(WRF_CHEM == 1)
                  ,mix_chem   , nchem        , kdvel       , ndvel        , chem3d        , vd3d   , &
@@ -100,6 +100,7 @@
     bl_mynn_mixnumcon,  &!
     bl_mynn_cloudmix,   &!
     bl_mynn_mixqt,      &!
+    bl_mynn_mss,        &!
     bl_mynn_tkebudget    !
  
  integer,intent(in):: &
@@ -533,6 +534,7 @@
             bl_mynn_output     = bl_mynn_output       , &
             bl_mynn_cloudmix   = bl_mynn_cloudmix     , &
             bl_mynn_mixqt      = bl_mynn_mixqt        , &
+            bl_mynn_mss        = bl_mynn_mss          , &
             icloud_bl          = icloud_bl            , &
             spp_pbl            = spp_pbl              , &
             kts = kts , kte = kte , errmsg = errmsg , errflg = errflg )

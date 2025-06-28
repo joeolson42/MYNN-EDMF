@@ -313,6 +313,7 @@ MODULE module_bl_mynnedmf
       &ten            = 10.0,    &
       &twenty         = 20.0,    &
       &thirty         = 30.0,    &
+      &forty          = 40.0,    &
       &fifty          = 50.0,    &
       &hundred        =100.0,    &
       &p1             =  0.1,    &
@@ -351,18 +352,13 @@ MODULE module_bl_mynnedmf
 !!but does not necessarily improve performance - neutral impact.
  real(kind_phys), parameter :: CKmod=1.
 
-!For calculating the moist static stability (mss) which is important for the
-!b-f freq and Ri. Either use the buoyancy flux functions (mss_opt=0) or
-!                        use a modified form of O'Gorman (2011) (mss_opt=1).  
- integer, parameter :: mss_opt=1
-
 !>Use Ito et al. (2015, BLM) scale-aware (0: no, 1: yes). Note that this also has impacts
 !!on the cloud PDF and mass-flux scheme, using LES-derived similarity function.
  real(kind_phys), parameter :: scaleaware=1.
 
 !>Parameter used for the conversion of tsq to qpe when using the closures that support 
 !!total turbulent energy (levels 2.7 and 3.0):
-  real(kind_phys), parameter :: taue=80.
+ real(kind_phys), parameter :: taue=80.
  
 !>Option to control the upwind/centerd finite differencing of explicit mass-flux solver when
 !>bl_mynn_edmf = 2  (0: mass flux inactive, 1: implicit, 2: explicit)
@@ -372,6 +368,7 @@ MODULE module_bl_mynnedmf
                                            ! implicit mass-flux only uses the centered differencing method. 
 
 ! Fraction of updrafts/downdrafts that advect plume (as oposed to ambient) properties
+! This is strictly for testing purposes and will likely be removed soon. 
  real(kind_phys), parameter :: fadv = 1.
  
 !>Option to activate heating due to dissipation of TKE (1: active, 0: off)
@@ -452,7 +449,7 @@ CONTAINS
              bl_mynn_edmf       , bl_mynn_edmf_mom  , bl_mynn_edmf_tke  , &
              bl_mynn_mixscalars , bl_mynn_mixaerosols,bl_mynn_mixnumcon , &
              bl_mynn_output     , bl_mynn_cloudmix  , bl_mynn_mixqt     , &
-             bl_mynn_edmf_dd    ,                                         &
+             bl_mynn_edmf_dd    , bl_mynn_mss       ,                     &
              !3d emdf output
              edmf_a1            , edmf_w1           , edmf_qt1          , &
              edmf_thl1          , edmf_ent1         , edmf_qc1          , &
@@ -484,6 +481,7 @@ CONTAINS
  integer, intent(in) :: bl_mynn_output
  integer, intent(in) :: bl_mynn_cloudmix
  integer, intent(in) :: bl_mynn_mixqt
+ integer, intent(in) :: bl_mynn_mss
  integer, intent(in) :: icloud_bl
  real(kind_phys), intent(in) :: closure
 
@@ -777,6 +775,7 @@ CONTAINS
             &tsq1, qsq1, cov1,              &
             &Psig_bl, cldfra_bl1,           &
             &bl_mynn_mixlength,             &
+            &bl_mynn_mss,                   &
             &edmf_w1,edmf_a1,               &
             &edmf_w_dd1,edmf_a_dd1,         &
             &INITIALIZE_QKE,                &
@@ -1107,6 +1106,7 @@ CONTAINS
             &tke_budget,                                 &
             &Psig_bl,Psig_shcu,                          &
             &cldfra_bl1,bl_mynn_mixlength,               &
+            &bl_mynn_mss,                                &
             &edmf_w1,edmf_a1,                            &
             &edmf_w_dd1,edmf_a_dd1,                      &
             &TKEprod_dn,TKEprod_up,                      &
@@ -1377,6 +1377,7 @@ CONTAINS
        &            Qke, Tsq, Qsq, Cov,                       &
        &            Psig_bl, cldfra_bl1,                      &
        &            bl_mynn_mixlength,                        &
+       &            bl_mynn_mss,                              &
        &            edmf_w1,edmf_a1,                          &
        &            edmf_w_dd1,edmf_a_dd1,                    &
        &            INITIALIZE_QKE,                           &
@@ -1386,6 +1387,7 @@ CONTAINS
 
     integer, intent(in)           :: kts,kte
     integer, intent(in)           :: bl_mynn_mixlength
+    integer, intent(in)           :: bl_mynn_mss
     logical, intent(in)           :: INITIALIZE_QKE
 !    real(kind_phys), intent(in)   :: ust, rmol, pmz, phh, flt, flq
     real(kind_phys), intent(in)   :: rmol, rmolh, Psig_bl, xland, pblh
@@ -1420,6 +1422,7 @@ CONTAINS
 !
 !> - Call mym_level2() to calculate the stability functions at level 2.
     CALL mym_level2 ( kts,kte,                      &
+         &            bl_mynn_mss,                  &
          &            zw, dz, xland, pblh,          &
          &            u, v, thl, thv, thlv,         &
          &            theta, p, exner,              &
@@ -1579,6 +1582,7 @@ CONTAINS
 !!\section gen_mym_level2 GSD MYNN-EDMF mym_level2 General Algorithm
 !! @ {
   SUBROUTINE  mym_level2 (kts,kte,                &
+       &            bl_mynn_mss,                  &
        &            zw, dz, xland, pblh,          &
        &            u, v, thl, thv, thlv,         &
        &            th, p, exner,                 &
@@ -1597,6 +1601,7 @@ CONTAINS
 #endif
 
  real(kind_phys), intent(in)::xland,pblh
+ integer, intent(in)        ::bl_mynn_mss
  real(kind_phys), dimension(kts:kte), intent(in)  :: dz
  real(kind_phys), dimension(kts:kte), intent(in)  :: u,v, &
       &thl,qw,ql,vt,vq,thv,thlv,th,p,exner,edmf_a,edmf_w, &
@@ -1610,7 +1615,8 @@ CONTAINS
       &ri1,ri2,ri3,ri4,duz,dtz,dqz,vtt,vqq,dtq,dzk,       &
       &afk,abk,rf
  real(kind_phys):: a2fac,thv1,thv0,eth0,eth1,lambda,qsat, &
-      &xl,tabs,clam0,clam,wt,mfi,qkei,cldfrai
+      &xl,tabs,clam0,clam,wt,mfi,qkei,cldfrai,ugrid,      &
+      &uonset,taper
  real(kind_phys), parameter:: thvp = 0.5 !percentage of thv in blend
 
 !    ev  = 2.5e6
@@ -1628,7 +1634,7 @@ CONTAINS
  sh(kts)=zero
  ri(kts)=zero
 
- select case (mss_opt)
+ select case (bl_mynn_mss)  !moist static stability
 
     case (0) !use buoyancy flux functions to calculate moist static stability (mss)
 
@@ -1663,8 +1669,13 @@ CONTAINS
        !turbulence and cloud fractions. The coefficient for lambda (clam) has
        !units of s/m (i.e., eddy timescale / pbl depth ~ 1.8), but needs to be
        !limited over land as noted below.
+       !--------------------------------
+       !taper mss for hurricane conditions
+       ugrid  = sqrt(u(kts)**2 + v(kts)**2)
+       uonset = twenty
+       taper  = one - p9*min(one, max(zero, ugrid - uonset)/thirty) !reduce to 0.1
        if ((xland-1.5).GE.zero) then !water
-          clam0 = 1.8_kind_phys
+          clam0 = 1.8_kind_phys * taper
        else                          !land
           !since the MF is much large over land and pblhs are much deeper,
           !we need a smaller tuning constant.
@@ -1715,7 +1726,8 @@ CONTAINS
           !cldfrai  = max(ncld, min(p1,mfi)) !TEST: always allow some destabilization in grid cells with plumes.
           
           !lambda significantly departs from OGorman (2011) by using MYNN-EDMF-specific information: 
-          lambda= clam * max(mfi, qkei) * cldfrai
+          !lambda= clam * max(mfi, qkei) * cldfrai
+          lambda= clam * (mfi + qkei) * cldfrai
           dtq   = ( thv1-thv0 )/dzk + lambda*min(zero, ( eth1-eth0 )/dzk )
           !dtq = max(zero, dtq)
 
@@ -1954,7 +1966,7 @@ CONTAINS
         !if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
         !   alp4  = 30.0_kind_phys * wt_u2
         !else
-           alp4  = 15.0_kind_phys
+           alp4  = 20.0_kind_phys
         !endif
         alp5  = p3
         alp6  = fifty
@@ -2077,7 +2089,7 @@ CONTAINS
 
      CASE (2) !Local (mostly) mixing length formulation
 
-        Uonset = 3.5_kind_phys + dz(kts)*0.1_kind_phys
+        Uonset = 3.5_kind_phys + dz(kts)*p1
         Ugrid  = sqrt(u1(kts)**2 + v1(kts)**2)
         cns    = 3.5_kind_phys !  * (one - MIN(MAX(Ugrid - Uonset, 0.0)/10.0, 1.0))
         alp1   = 0.22_kind_phys
@@ -2089,7 +2101,7 @@ CONTAINS
 
         ! Impose limits on the height integration for elt and the transition layer depth
         !pblh2=MAX(pblh,minpblh)
-        pblh2=MAX(pblh, 300._kind_phys)
+        pblh2=MAX(pblh, 200._kind_phys)
         !h1=MAX(0.3*pblh2,mindz)
         !h1=MIN(h1,maxdz)         ! 1/2 transition layer depth
         h1=MAX(p3*pblh2,300._kind_phys)
@@ -2127,16 +2139,16 @@ CONTAINS
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt +( vq(kts)+tv0 )*flq
         vflx = fltv
-        vsc = ( gtr*elt*MAX( vflx, 0.0 ) )**p333
+        vsc  = ( gtr*elt*MAX( vflx, zero ) )**p333
 
         !   **  Strictly, el(i,j,1) is not zero.  **
-        el(kts) = 0.0
+        el(kts) = zero
         zwk1    = zw(kts+1)
 
         DO k = kts+1,kte
            zwk = zw(k)              !full-sigma levels
-           dzk = 0.5*( dz(k)+dz(k-1) )
-           cldavg = 0.5*(cldfra_bl1(k-1)+cldfra_bl1(k))
+           dzk = p5*( dz(k)+dz(k-1) )
+           cldavg = p5*(cldfra_bl1(k-1)+cldfra_bl1(k))
            qkw_mf = max((p5*(edmf_a1(k)+edmf_a1(k-1)))*(p5*(edmf_w1(k)+edmf_w1(k-1))), &
                   & abs(edmf_a_dd1(k-1)*edmf_w_dd1(k-1)))
 
@@ -2156,7 +2168,7 @@ CONTAINS
               !minimize influence of surface heat flux on tau far away from the PBLH.
               wt=p5*TANH((zwk - (pblh2+h1))/h2) + p5
               tau_cloud = tau_cloud*(1.-wt) + fifty*wt
-              elf = MIN(MAX(tau_cloud*SQRT(MIN(qtke(k),40.)), &
+              elf = MIN(MAX(tau_cloud*SQRT(MIN(qtke(k),forty)), &
                   &         alp6*qkw_mf/bv), zwk)
 
               !IF (zwk > pblh .AND. elf > 400.) THEN
@@ -2608,6 +2620,7 @@ CONTAINS
     &            tke_budget,                                  &
     &            Psig_bl,Psig_shcu,cldfra_bl1,                &
     &            bl_mynn_mixlength,                           &
+    &            bl_mynn_mss,                                 &
     &            edmf_w1,edmf_a1,                             &
     &            edmf_w_dd1,edmf_a_dd1,                       &
     &            TKEprod_dn,TKEprod_up,                       &
@@ -2622,7 +2635,9 @@ CONTAINS
 # define kte HARDCODE_VERTICAL
 #endif
 
-    integer, intent(in)               :: bl_mynn_mixlength,tke_budget
+    integer, intent(in)               :: bl_mynn_mixlength
+    integer, intent(in)               :: tke_budget
+    integer, intent(in)               :: bl_mynn_mss
     real(kind_phys), intent(in)       :: closure
     real(kind_phys), dimension(kts:kte),   intent(in) :: dz
     real(kind_phys), dimension(kts:kte+1), intent(in) :: zw
@@ -2695,6 +2710,7 @@ CONTAINS
     endif
 
     CALL mym_level2 (kts,kte,                   &
+    &            bl_mynn_mss,                   &
     &            zw, dz, xland, pblh,           &
     &            u, v, thl, thv, thlv,          &
     &            theta, p, exner,               &

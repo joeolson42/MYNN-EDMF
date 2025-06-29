@@ -1865,7 +1865,7 @@ CONTAINS
     real(kind_phys):: afk,abk,zwk,zwk1,dzk,qdz,vflx,bv,tau_cloud,      &
            & wstar,elb,els,elf,el_stab,el_mf,el_stab_mf,elb_mf,elt_max,&
            & PBLH_PLUS_ENT,Uonset,Ugrid,wt_u1,wt_u2,el_les,qkw_mf,     &
-           & z_m,el_unstab,els1,alp3z,cpblh
+           & z_m,el_unstab,els1,alp3z,cpblh,wt_dx
     real(kind_phys), parameter :: ctau = 1000. !constant for tau_cloud
 
 !    tv0 = 0.61*tref

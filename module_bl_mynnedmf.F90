@@ -1865,7 +1865,7 @@ CONTAINS
     real(kind_phys):: afk,abk,zwk,zwk1,dzk,qdz,vflx,bv,tau_cloud,      &
            & wstar,elb,els,elf,el_stab,el_mf,el_stab_mf,elb_mf,elt_max,&
            & PBLH_PLUS_ENT,Uonset,Ugrid,wt_u1,wt_u2,el_les,qkw_mf,     &
-           & z_m,el_unstab,els1,alp3z,cpblh
+           & z_m,el_unstab,els1,alp3z,cpblh,wt_dx
     real(kind_phys), parameter :: ctau = 1000. !constant for tau_cloud
 
 !    tv0 = 0.61*tref
@@ -1931,7 +1931,7 @@ CONTAINS
               elf = alp2 * qkw(k)/bv
 
            ELSE
-              elb = 1.0e10
+              elb = 1.0e10_kind_phys
               elf = elb
            ENDIF
 
@@ -1961,7 +1961,9 @@ CONTAINS
         wt_u2 = one - p4*min(one, max(zero, ugrid - uonset)/fifty) !reduce to 0.6
         cns   = 3.5_kind_phys
         alp1  = 0.23_kind_phys
-        alp2  = p3
+        !scale-awareness for the mesoscale greyzone (4-16 km)
+        wt_dx = one - min(one, (max(zero, dx-4000._kind_phys)/12000._kind_phys))
+        alp2  = p3*wt_dx + (one-wt_dx)*0.45_kind_phys
         alp3  = five * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
         !if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
         !   alp4  = 30.0_kind_phys * wt_u2

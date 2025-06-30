@@ -1963,7 +1963,7 @@ CONTAINS
         alp1  = 0.23_kind_phys
         !scale-awareness for the mesoscale greyzone (4-16 km)
         wt_dx = one - min(one, (max(zero, dx-4000._kind_phys)/12000._kind_phys))
-        alp2  = p3*wt_dx + (one-wt_dx)*0.45_kind_phys
+        alp2  = p3*wt_dx + (one-wt_dx)*0.42_kind_phys
         alp3  = five * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
         !if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
         !   alp4  = 30.0_kind_phys * wt_u2
@@ -7543,7 +7543,7 @@ END SUBROUTINE GET_PBLH
 
             !qmq = a * (qt1(k) - qsat_tk)          ! saturation deficit/excess;
             qmq = qt1(k) - qsat_tk                ! saturation deficit/excess;
-            if (qmq > zero) sigq = min(qsat_tk*0.02_kind_phys, sigq)
+            if (qmq > zero) sigq = min(qsat_tk*0.015_kind_phys, sigq)
             Q1  = qmq/sigq                        !   the numerator of Q1
 
             if ((landsea-1.5).GE.zero) then   ! WATER
@@ -7579,8 +7579,10 @@ END SUBROUTINE GET_PBLH
                if (QCp * Aup > 5e-5) then
                   qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
                else
-                  qc_mf     = 1.18_kind_phys * (QCp * Aup)
+                  qc_mf     = 1.23_kind_phys * (QCp * Aup)
                endif
+               qc_mf = max(qc_mf, qsat_tk*0.012_kind_phys*cf_mf)
+               
                cf_strat     = cldfra_bl1(k)
                qc_strat     = qc_bl1(k)
                cldfra_bl1(k)= max(cf_mf, cf_strat)
@@ -7590,8 +7592,10 @@ END SUBROUTINE GET_PBLH
                if (QCp * Aup > 5e-5) then
                   qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
                else
-                  qc_mf     = 1.18_kind_phys * (QCp * Aup)
+                  qc_mf     = 1.23_kind_phys * (QCp * Aup)
                endif
+               qc_mf = max(qc_mf, qsat_tk*0.012_kind_phys*cf_mf)
+               
                cf_strat	    = cldfra_bl1(k)
                qc_strat     = qc_bl1(k)
                cldfra_bl1(k)= max(cf_mf, cf_strat)

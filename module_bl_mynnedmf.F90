@@ -449,7 +449,7 @@ CONTAINS
              bl_mynn_edmf       , bl_mynn_edmf_mom  , bl_mynn_edmf_tke  , &
              bl_mynn_mixscalars , bl_mynn_mixaerosols,bl_mynn_mixnumcon , &
              bl_mynn_output     , bl_mynn_cloudmix  , bl_mynn_mixqt     , &
-             bl_mynn_edmf_dd    , bl_mynn_mss       ,                     &
+             bl_mynn_edmf_dd    , bl_mynn_ess       ,                     &
              !3d emdf output
              edmf_a1            , edmf_w1           , edmf_qt1          , &
              edmf_thl1          , edmf_ent1         , edmf_qc1          , &
@@ -481,7 +481,7 @@ CONTAINS
  integer, intent(in) :: bl_mynn_output
  integer, intent(in) :: bl_mynn_cloudmix
  integer, intent(in) :: bl_mynn_mixqt
- integer, intent(in) :: bl_mynn_mss
+ integer, intent(in) :: bl_mynn_ess
  integer, intent(in) :: icloud_bl
  real(kind_phys), intent(in) :: closure
 
@@ -617,7 +617,7 @@ CONTAINS
              print*," qv=",sqv1(k)," qc=",sqc1(k)
              print*," u*=",ust," wspd=",wspd
              print*," xland=",xland," ts=",ts
-             print*," z/L=",p5*dz1(1)*rmol," ps=",ps,"delp1=",ps-pres1(kts)
+             print*," ps=",ps,"delp1=",ps-pres1(kts)
              print*," znt=",znt," dx=",dx," dz(1)=",dz1(1)
           endif
        enddo
@@ -764,6 +764,8 @@ CONTAINS
 !! \f$q^{'2}\f$, and \f$\theta^{'}q^{'}\f$. These variables are calculated after 
 !! obtaining prerequisite variables by calling the following subroutines from 
 !! within mym_initialize(): mym_level2() and mym_length().
+       rmol = zero
+       rmolh= zero
        CALL mym_initialize (                & 
             &kts,kte,xland,pblh,            &
             &dz1, dx, zw1, pres1, ex1,      &
@@ -775,7 +777,7 @@ CONTAINS
             &tsq1, qsq1, cov1,              &
             &Psig_bl, cldfra_bl1,           &
             &bl_mynn_mixlength,             &
-            &bl_mynn_mss,                   &
+            &bl_mynn_ess,                   &
             &edmf_w1,edmf_a1,               &
             &edmf_w_dd1,edmf_a_dd1,         &
             &INITIALIZE_QKE,                &
@@ -1106,7 +1108,7 @@ CONTAINS
             &tke_budget,                                 &
             &Psig_bl,Psig_shcu,                          &
             &cldfra_bl1,bl_mynn_mixlength,               &
-            &bl_mynn_mss,                                &
+            &bl_mynn_ess,                                &
             &edmf_w1,edmf_a1,                            &
             &edmf_w_dd1,edmf_a_dd1,                      &
             &TKEprod_dn,TKEprod_up,                      &
@@ -1377,7 +1379,7 @@ CONTAINS
        &            Qke, Tsq, Qsq, Cov,                       &
        &            Psig_bl, cldfra_bl1,                      &
        &            bl_mynn_mixlength,                        &
-       &            bl_mynn_mss,                              &
+       &            bl_mynn_ess,                              &
        &            edmf_w1,edmf_a1,                          &
        &            edmf_w_dd1,edmf_a_dd1,                    &
        &            INITIALIZE_QKE,                           &
@@ -1387,7 +1389,7 @@ CONTAINS
 
     integer, intent(in)           :: kts,kte
     integer, intent(in)           :: bl_mynn_mixlength
-    integer, intent(in)           :: bl_mynn_mss
+    integer, intent(in)           :: bl_mynn_ess
     logical, intent(in)           :: INITIALIZE_QKE
 !    real(kind_phys), intent(in)   :: ust, rmol, pmz, phh, flt, flq
     real(kind_phys), intent(in)   :: rmol, rmolh, Psig_bl, xland, pblh
@@ -1422,7 +1424,7 @@ CONTAINS
 !
 !> - Call mym_level2() to calculate the stability functions at level 2.
     CALL mym_level2 ( kts,kte,                      &
-         &            bl_mynn_mss,                  &
+         &            bl_mynn_ess,                  &
          &            zw, dz, xland, pblh,          &
          &            u, v, thl, thv, thlv,         &
          &            theta, p, exner,              &
@@ -1582,7 +1584,7 @@ CONTAINS
 !!\section gen_mym_level2 GSD MYNN-EDMF mym_level2 General Algorithm
 !! @ {
   SUBROUTINE  mym_level2 (kts,kte,                &
-       &            bl_mynn_mss,                  &
+       &            bl_mynn_ess,                  &
        &            zw, dz, xland, pblh,          &
        &            u, v, thl, thv, thlv,         &
        &            th, p, exner,                 &
@@ -1601,7 +1603,7 @@ CONTAINS
 #endif
 
  real(kind_phys), intent(in)::xland,pblh
- integer, intent(in)        ::bl_mynn_mss
+ integer, intent(in)        ::bl_mynn_ess
  real(kind_phys), dimension(kts:kte), intent(in)  :: dz
  real(kind_phys), dimension(kts:kte), intent(in)  :: u,v, &
       &thl,qw,ql,vt,vq,thv,thlv,th,p,exner,edmf_a,edmf_w, &
@@ -1617,7 +1619,7 @@ CONTAINS
  real(kind_phys):: a2fac,thv1,thv0,eth0,eth1,lambda,qsat, &
       &xl,tabs,clam0,clam,wt,mfi,qkei,cldfrai,ugrid,      &
       &uonset,taper
- real(kind_phys), parameter:: thvp = 0.5 !percentage of thv in blend
+ real(kind_phys), parameter:: thvp = 0.25 !percentage of thv in blend
 
 !    ev  = 2.5e6
 !    tv0 = 0.61*tref
@@ -1634,9 +1636,9 @@ CONTAINS
  sh(kts)=zero
  ri(kts)=zero
 
- select case (bl_mynn_mss)  !moist static stability
+ select case (bl_mynn_ess)  !moist static stability
 
-    case (0) !use buoyancy flux functions to calculate moist static stability (mss)
+    case (0) !use buoyancy flux functions to calculate effective static stability (ess)
 
        do k = kts+1,kte
           dzk = p5 *( dz(k)+dz(k-1) )
@@ -1662,7 +1664,7 @@ CONTAINS
           ri(k) = -gh(k)/MAX( duz, 1.0e-10_kind_phys )
        enddo
        
-    case (1) !form of moist static stability (mss) similar to O'Gorman (2011, JAS)
+    case (1) !form of effective static stability (ess) similar to O'Gorman (2011, JAS)
        !but modified to better fit within the MYNN-EDMF. This approach
        !destabilizes the lapse rates in grid cells with tke/mf/clouds by adding
        !a negative eqiv potential temperature gradient proportional to the
@@ -1670,14 +1672,14 @@ CONTAINS
        !units of s/m (i.e., eddy timescale / pbl depth ~ 1.8), but needs to be
        !limited over land as noted below.
        !--------------------------------
-       !taper mss for hurricane conditions
+       !taper ess for hurricane conditions
        ugrid  = sqrt(u(kts)**2 + v(kts)**2)
        uonset = twenty
        taper  = one - p9*min(one, max(zero, ugrid - uonset)/thirty) !reduce to 0.1
        if ((xland-1.5).GE.zero) then !water
           clam0 = 1.8_kind_phys * taper
        else                          !land
-          !since the MF is much large over land and pblhs are much deeper,
+          !since the MF and TKE is much large over land and pblhs are much deeper,
           !we need a smaller tuning constant.
           clam0 = 0.08_kind_phys
        endif
@@ -1694,7 +1696,9 @@ CONTAINS
           !blend clam to free tropospheric value (0.2) above the pblh
           wt    = min(one, max(zero, zw(k)-(pblh+hundred))/max(400._kind_phys, p3*pblh)) !0 below pblh, 1 above pblh
           clam  = clam0*(one-wt) + p2*wt
-
+          !choke of clam near the surface
+          clam  = clam * min(one, max(zero, zw(k)-twenty)/200.0_kind_phys)
+          
           !Use a blended subgrid-cloud-included theta-v and theta-l-v for background
           !thermodynamic profile:
           thv1  = thvp*thv(k)   + (one-thvp)*thlv(k)
@@ -1726,8 +1730,8 @@ CONTAINS
           !cldfrai  = max(ncld, min(p1,mfi)) !TEST: always allow some destabilization in grid cells with plumes.
           
           !lambda significantly departs from OGorman (2011) by using MYNN-EDMF-specific information: 
-          !lambda= clam * max(mfi, qkei) * cldfrai
-          lambda= clam * (mfi + qkei) * cldfrai
+          lambda= clam * max(mfi, qkei) * cldfrai
+          !lambda= clam * (mfi + qkei) * cldfrai
           dtq   = ( thv1-thv0 )/dzk + lambda*min(zero, ( eth1-eth0 )/dzk )
           !dtq = max(zero, dtq)
 
@@ -1958,18 +1962,19 @@ CONTAINS
         ugrid = sqrt(u1(kts)**2 + v1(kts)**2)
         uonset= twenty
         wt_u1 = one - p2*min(one, max(zero, ugrid - uonset)/fifty) !reduce to 0.8
-        wt_u2 = one - p4*min(one, max(zero, ugrid - uonset)/fifty) !reduce to 0.6
-        cns   = 3.5_kind_phys
-        alp1  = 0.23_kind_phys
+        wt_u2 = one - p5*min(one, max(zero, ugrid - uonset)/fifty) !reduce to 0.5
         !scale-awareness for the mesoscale greyzone (4-16 km)
         wt_dx = one - min(one, (max(zero, dx-4000._kind_phys)/12000._kind_phys))
-        alp2  = p3*wt_dx + (one-wt_dx)*0.42_kind_phys
+        
+        cns   = 3.5_kind_phys
+        alp1  = 0.23_kind_phys*wt_dx + (one-wt_dx)*0.24_kind_phys
+        alp2  = p3*wt_dx             + (one-wt_dx)*0.40_kind_phys
         alp3  = five * wt_u2 !taper off bouyancy enhancement in shear-driven pbls
-        !if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
-        !   alp4  = 30.0_kind_phys * wt_u2
-        !else
-           alp4  = 20.0_kind_phys
-        !endif
+        if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
+           alp4  = twenty ! * wt_u2
+        else
+           alp4  = 15.0_kind_phys
+        endif
         alp5  = p3
         alp6  = fifty
 
@@ -1998,7 +2003,7 @@ CONTAINS
         !   **  Strictly, zwk*h(i,j) -> ( zwk*h(i,j)+z0 )  **
         k   = kts+1
         zwk = zw(k)
-        DO WHILE (zwk .LE. pblh2+max(150.,min(p3*pblh2,500._kind_phys)))
+        DO WHILE (zwk .LE. pblh2+max(200.,min(p3*pblh2,600._kind_phys)))
            dzk = p5*( dz(k)+dz(k-1) )
            qdz = min(max( qkw(k), 0.01_kind_phys ), 30.0_kind_phys)*dzk
            elt = elt +qdz*zwk
@@ -2053,17 +2058,16 @@ CONTAINS
 
            z_m = MAX(karman, zwk - four)
            !   **  Length scale in the surface layer  **
-           IF ( rmolh .GT. 0.0 ) THEN
-              els  = karman*zwk/(one+cns*MIN( zwk*rmolh, zmax ))
-              els1 = karman*z_m/(one+cns*MIN( zwk*rmolh, zmax ))
+           IF ( rmol .GT. 0.0 ) THEN
+              els  = karman*zwk/(one+cns*MIN( zwk*rmol, zmax ))
+              els1 = karman*z_m/(one+cns*MIN( zwk*rmol, zmax ))
            ELSE
-              els  = karman*zwk*( one - alp4* zwk*rmolh)**p2
-              els1 = karman*z_m*( one - alp4* zwk*rmolh)**p2
+              els  = karman*zwk*( one - alp4* zwk*rmol)**p2
+              els1 = karman*z_m*( one - alp4* zwk*rmol)**p2
            END IF
 
            !   ** NOW BLEND THE MIXING LENGTH SCALES:
            wt =p5*TANH((zwk - (pblh2+h1))/h2) + p5
-           wt2=p5*TANH((zwk - (pblh2+twenty))/300._kind_phys) + p5
            !add blending to use BouLac mixing length in free atmos;
            !defined relative to the PBLH (pblh) + transition layer (h1)
            !el(k) = MIN(elb/( elb/elt+elb/els+one ),elf)
@@ -2077,8 +2081,6 @@ CONTAINS
            if ((xland-1.5).GE.zero) then !hurricane tuning, over water only
               el(k)  = el(k)*wt_u1
            endif
-           !add step to ensure BouLac ML isnt exaggerating el in the PBL
-           !elBLavg(k)= el(k)*(one-wt2) + elBLavg(k)*wt2
            el(k)     = el(k)*(one-wt) + elBLavg(k)*wt
 
            !if (el(k) > 1000.) then
@@ -2622,7 +2624,7 @@ CONTAINS
     &            tke_budget,                                  &
     &            Psig_bl,Psig_shcu,cldfra_bl1,                &
     &            bl_mynn_mixlength,                           &
-    &            bl_mynn_mss,                                 &
+    &            bl_mynn_ess,                                 &
     &            edmf_w1,edmf_a1,                             &
     &            edmf_w_dd1,edmf_a_dd1,                       &
     &            TKEprod_dn,TKEprod_up,                       &
@@ -2639,7 +2641,7 @@ CONTAINS
 
     integer, intent(in)               :: bl_mynn_mixlength
     integer, intent(in)               :: tke_budget
-    integer, intent(in)               :: bl_mynn_mss
+    integer, intent(in)               :: bl_mynn_ess
     real(kind_phys), intent(in)       :: closure
     real(kind_phys), dimension(kts:kte),   intent(in) :: dz
     real(kind_phys), dimension(kts:kte+1), intent(in) :: zw
@@ -2712,7 +2714,7 @@ CONTAINS
     endif
 
     CALL mym_level2 (kts,kte,                   &
-    &            bl_mynn_mss,                   &
+    &            bl_mynn_ess,                   &
     &            zw, dz, xland, pblh,           &
     &            u, v, thl, thv, thlv,          &
     &            theta, p, exner,               &
@@ -6513,7 +6515,7 @@ END SUBROUTINE GET_PBLH
  real(kind_phys),dimension(kts:kte), intent(inout) :: vt1, vq1, sgm1
  real(kind_phys):: sigq,xl,rsl,cpm,a,qmq,Aup,Q1,diffqt,qsat_tk,     &
          Fng,qww,alpha,beta,bb,f,pt,t,q2p,b9,satvp,rhgrid,entfac,   &
-         cf_strat,qc_strat,cf_mf,qc_mf,pct_mf,wt2,dqwdz,tauc
+         cf_strat,qc_strat,cf_mf,qc_mf,qc_mf_min,pct_mf,wt2,dqwdz,tauc
  real(kind_phys), parameter :: cf_thresh = 0.5 ! only overwrite stratus CF less than this value
 
  ! Variables interpolated to interface levels
@@ -6841,7 +6843,7 @@ END SUBROUTINE GET_PBLH
           !0.58*16 = 9.28
           !0.58*10 = 5.8
           !0.58*5  = 2.9
-          exc_fac = 8.1_kind_phys
+          exc_fac = 9.28_kind_phys
        else
           !land: no need to increase factor - already sufficiently large superadiabatic layers
           exc_fac = 0.58_kind_phys
@@ -6947,7 +6949,7 @@ END SUBROUTINE GET_PBLH
           ! 0.30 ~ 1.43
           ! 0.28 ~ 1.33
           ! 0.26 ~ 1.24
-          entfac = 0.21_kind_phys * min(1.62_kind_phys, max(1.33_kind_phys, sqrt(qkebl)))
+          entfac = 0.21_kind_phys * min(1.62_kind_phys, max(1.30_kind_phys, sqrt(qkebl)))
           !entfac = 0.33_kind_phys
           !make entfac tend to original value (0.33) above the pblh:
           wt2    = min(one, max(zero, zagl - pblh)/500._kind_phys) !0 in pbl, 1 aloft
@@ -7572,36 +7574,35 @@ END SUBROUTINE GET_PBLH
             !   print*," cf_mf=",cf_mf," cldfra_bl=",cldfra_bl1(k)," edmf_a1=",edmf_a1(k)
             !endif
 
-            ! Update cloud fractions and specific humidities in grid cells
-            ! where the mass-flux scheme is active. The specific humidities
-            ! are converted to grid means (not in-cloud quantities).
+            !Update cloud fractions and specific humidities in grid cells
+            !where the mass-flux scheme is active. The specific humidities
+            !are converted to grid means (not in-cloud quantities).
             if ((landsea-1.5).GE.zero) then  ! water
                if (QCp * Aup > 5e-5) then
                   qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
                else
-                  qc_mf     = 1.23_kind_phys * (QCp * Aup)
+                  qc_mf     = 1.20_kind_phys * (QCp * Aup)
                endif
-               qc_mf = max(qc_mf, qsat_tk*0.012_kind_phys*cf_mf)
-               
-               cf_strat     = cldfra_bl1(k)
-               qc_strat     = qc_bl1(k)
-               cldfra_bl1(k)= max(cf_mf, cf_strat)
-               pct_mf       = cf_mf/cldfra_bl1(k)
-               qc_bl1(k)    = qc_mf*pct_mf + (one-pct_mf)*qc_strat
             else                             ! land
                if (QCp * Aup > 5e-5) then
                   qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
                else
-                  qc_mf     = 1.23_kind_phys * (QCp * Aup)
+                  qc_mf     = 1.20_kind_phys * (QCp * Aup)
                endif
-               qc_mf = max(qc_mf, qsat_tk*0.012_kind_phys*cf_mf)
-               
-               cf_strat	    = cldfra_bl1(k)
-               qc_strat     = qc_bl1(k)
-               cldfra_bl1(k)= max(cf_mf, cf_strat)
-               pct_mf 	    = cf_mf/cldfra_bl1(k)
-               qc_bl1(k)    = qc_mf*pct_mf + (one-pct_mf)*qc_strat
             endif
+            !In the condition of very large cloud fractions, where the instantaneous
+            !condensed water in the plume is not a reasonable estimate of the
+            !mixing ratio in a larger cloud, we must rely on a background estimate based
+            !off of environmental qsat.
+            wt2          = one - min(one, max(zero, (cf_mf - thirty))/(hundred-thirty))
+            qc_mf_min    = wt2*qsat_tk*0.01_kind_phys*cf_mf + (one-wt2)*qsat_tk*0.025_kind_phys*cf_mf
+            qc_mf        = max(qc_mf, qc_mf_min)
+            !Then blend with the stratus component:
+            cf_strat     = cldfra_bl1(k)
+            qc_strat     = qc_bl1(k)
+            cldfra_bl1(k)= max(cf_mf, cf_strat)
+            pct_mf       = cf_mf/cldfra_bl1(k)
+            qc_bl1(k)    = qc_mf*pct_mf + (one-pct_mf)*qc_strat
 
             !Now recalculate the terms for the buoyancy flux for mass-flux clouds:
             !See mym_condensation for details on these formulations.
@@ -7617,9 +7618,9 @@ END SUBROUTINE GET_PBLH
             if (Q1 .ge. one) then
                Fng = one
             elseif (Q1 .ge. -1.7 .and. Q1 .lt. one) then
-               Fng = EXP(-0.4*(Q1-one))
+               Fng = EXP(-p4*(Q1-one))
             elseif (Q1 .ge. -2.5 .and. Q1 .lt. -1.7) then
-               Fng = 3.0 + EXP(-3.8*(Q1+1.7))
+               Fng = three + EXP(-3.8*(Q1+1.7))
             else
                Fng = min(23.9 + EXP(-1.6*(Q1+2.5)), 60.)
             endif

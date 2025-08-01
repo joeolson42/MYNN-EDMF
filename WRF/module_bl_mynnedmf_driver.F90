@@ -105,7 +105,7 @@
                   bl_mynn_tkeadvect , tke_budget        , bl_mynn_cloudpdf   , bl_mynn_mixlength  , &
                   bl_mynn_closure   , bl_mynn_edmf      , bl_mynn_edmf_mom   , bl_mynn_edmf_tke   , &
                   bl_mynn_output    , bl_mynn_mixscalars, bl_mynn_mixaerosols, bl_mynn_mixnumcon  , &
-                  bl_mynn_cloudmix  , bl_mynn_mixqt     , bl_mynn_edmf_dd                           &
+                  bl_mynn_cloudmix  , bl_mynn_mixqt     , bl_mynn_edmf_dd    , bl_mynn_ess          &
 #if(WRF_CHEM == 1)
                   ,mix_chem         , chem3d            , vd3d               , nchem              , &
                   kdvel             , ndvel             , num_vert_mix                              &
@@ -158,6 +158,7 @@
          bl_mynn_mixscalars,                            &
          bl_mynn_mixaerosols,                           &
          bl_mynn_mixnumcon,                             &
+         bl_mynn_ess,                                   &
          spp_pbl,                                       &
          tke_budget
  real(kind_phys), intent(in) ::                         &
@@ -543,7 +544,7 @@
             sqc1            = sqc1          , sqi1        = sqi1          , sqs1        = sqs1         , &
             qnc1            = qnc1          , qni1        = qni1          , qnwfa1      = qnwfa1       , &
             qnifa1          = qnifa1        , qnbca1      = qnbca1        , ozone1      = ozone1       , &
-            p1              = p1            , ex1         = ex1           , rho1        = rho1         , &
+            pres1           = p1            , ex1         = ex1           , rho1        = rho1         , &
             tk1             = tk1           , xland       = xland1        , ts          = ts1          , &
             qsfc            = qsfc1         , ps          = ps1           , ust         = ust1         , &
             ch              = ch1           , hfx         = hfx1          , qfx         = qfx1         , &
@@ -591,6 +592,7 @@
             bl_mynn_output     = bl_mynn_output       , &
             bl_mynn_cloudmix   = bl_mynn_cloudmix     , &
             bl_mynn_mixqt      = bl_mynn_mixqt        , &
+            bl_mynn_ess        = bl_mynn_ess          , &
             icloud_bl          = icloud_bl            , &
             spp_pbl            = spp_pbl              , &
             kts = kts , kte = kte , errmsg = errmsg , errflg = errflg )

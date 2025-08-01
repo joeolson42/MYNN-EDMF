@@ -49,7 +49,7 @@
                   bl_mynn_closure   , bl_mynn_stfunc    , bl_mynn_topdown    , bl_mynn_scaleaware , &
                   bl_mynn_dheat_opt , bl_mynn_edmf      , bl_mynn_edmf_dd    , bl_mynn_edmf_mom   , &
                   bl_mynn_edmf_tke  , bl_mynn_output    , bl_mynn_mixscalars , bl_mynn_mixaerosols, &
-                  bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      ,                      &
+                  bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      , bl_mynn_ess        , &
                   errmsg            , errflg                                                        &
                  ,mix_chem, nchem, ndvel, chem3d, settle3d, vd3d, frp_mean     , emis_ant_no        &
                )
@@ -97,6 +97,7 @@
     bl_mynn_mixnumcon,  &!
     bl_mynn_cloudmix,   &!
     bl_mynn_mixqt,      &!
+    bl_mynn_ess,        &!
     bl_mynn_tkebudget    !
  
  integer,intent(in):: &
@@ -473,7 +474,7 @@
             sqc1            = sqc1          , sqi1        = sqi1          , sqs1        = sqs1         , &
             qnc1            = nc1           , qni1        = ni1           , qnwfa1      = nwfa1        , &
             qnifa1          = nifa1         , qnbca1      = nbca1         , ozone1      = qoz1         , &
-            p1              = p1            , ex1         = exner1        , rho1        = rho1         , &
+            pres1           = p1            , ex1         = exner1        , rho1        = rho1         , &
             tk1             = tt1           , xland       = xland1        , ts          = ts1          , &
             qsfc            = qsfc1         , ps          = ps1           , ust         = ust1         , &
             ch              = ch1           , hfx         = hfx1          , qfx         = qfx1         , &
@@ -520,6 +521,7 @@
             bl_mynn_output     = bl_mynn_output       , &
             bl_mynn_cloudmix   = bl_mynn_cloudmix     , &
             bl_mynn_mixqt      = bl_mynn_mixqt        , &
+            bl_mynn_ess        = bl_mynn_ess          , &
             icloud_bl          = icloud_bl            , &
             spp_pbl            = spp_pbl              , &
             kts = kts , kte = kte , errmsg = errmsg , errflg = errflg )

@@ -233,11 +233,11 @@
 #if (WRF_CHEM == 1)
  real(kind_phys), dimension(ims:ime,kms:kme,jms:jme,nchem), intent(inout) :: chem3d
  real(kind_phys), dimension(ims:ime,kdvel,jms:jme, ndvel),  intent(in)    :: vd3d
- real(kind_phys), dimension(kms:kme,nchem)  :: chem
+ real(kind_phys), dimension(kms:kme,nchem)  :: chem, settle1
  real(kind_phys), dimension(ndvel)          :: vd
  real(kind_phys), dimension(ims:ime,jms:jme):: frp_mean, emis_ant_no
 #else
- real(kind_phys), dimension(kms:kme,nchem)  :: chem
+ real(kind_phys), dimension(kms:kme,nchem)  :: chem, settle1
  real(kind_phys), dimension(ndvel)          :: vd
  real(kind_phys), dimension(ims:ime,jms:jme):: frp_mean, emis_ant_no
 #endif
@@ -500,6 +500,7 @@
          do n=1,nchem
          do k=kts,kte
             chem(k,n)=chem3d(i,k,j,n)
+            settle1(k,n)=0.0
          enddo
          enddo
 
@@ -512,6 +513,7 @@
       emis_ant_no = 0.0
 #else
       chem        = 0.0
+      settle1     = 0.0
       vd          = 0.0
       frp_mean    = 0.0
       emis_ant_no = 0.0
@@ -573,9 +575,9 @@
             pattern_spp_pbl1= pattern_spp_pbl1, scalars   = scalars       , nscalars    = nscalars     , &
 !#if(WRF_CHEM == 1)
             mix_chem        = mix_chem      , enh_mix     = enh_mix       , rrfs_sd     = rrfs_sd      , &
-            smoke_dbg       = smoke_dbg     , nchem       = nchem         , kdvel       = kdvel        , &
-            ndvel           = ndvel         , chem        = chem          , emis_ant_no = emis1        , &
-            frp             = frp1          , vdep        = vd                                         , &
+            smoke_dbg       = smoke_dbg     , nchem       = nchem         ,                              &
+            ndvel           = ndvel         , chem1       = chem          , emis_ant_no = emis1        , &
+            frp             = frp1          , vdep        = vd            , settle1     = settle1      , &
 !#endif
             bl_mynn_tkeadvect  = bl_mynn_tkeadvect    , &
             tke_budget         = tke_budget           , &

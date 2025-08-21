@@ -127,15 +127,11 @@
  logical, intent(in) :: mix_chem
  integer, intent(in) :: nchem, ndvel, kdvel, num_vert_mix
  logical, parameter ::                                  &
-         rrfs_sd    =.false.,                           &
-         smoke_dbg  =.false.,                           &
          enh_mix    =.false.
 #else
  logical, parameter ::                                  &
          mix_chem   =.false.,                           &
-         enh_mix    =.false.,                           &
-         rrfs_sd    =.false.,                           &
-         smoke_dbg  =.false.
+         enh_mix    =.false.
  integer, parameter :: nchem=2, ndvel=2, kdvel=1,       &
           num_vert_mix = 1
 #endif
@@ -574,8 +570,7 @@
             flag_qnwfa      = flag_qnwfa    , flag_qnifa  = flag_qnifa    , flag_qnbca  = flag_qnbca   , &
             pattern_spp_pbl1= pattern_spp_pbl1, scalars   = scalars       , nscalars    = nscalars     , &
 !#if(WRF_CHEM == 1)
-            mix_chem        = mix_chem      , enh_mix     = enh_mix       , rrfs_sd     = rrfs_sd      , &
-            smoke_dbg       = smoke_dbg     , nchem       = nchem         ,                              &
+            mix_chem        = mix_chem      , enh_mix     = enh_mix       , nchem       = nchem        , &
             ndvel           = ndvel         , chem1       = chem          , emis_ant_no = emis1        , &
             frp             = frp1          , vdep        = vd            , settle1     = settle1      , &
 !#endif

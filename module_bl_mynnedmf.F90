@@ -422,8 +422,7 @@ CONTAINS
              !smoke variables
              nchem              , ndvel             ,                     &
              chem1              , vdep              , frp               , &
-             emis_ant_no        , mix_chem,enh_mix  , rrfs_sd           , &
-             smoke_dbg          , settle1           ,                     &
+             emis_ant_no        , mix_chem,enh_mix  , settle1           , &
              !generic scalar array
              scalars            , nscalars          ,                     &
              !higher-order moments
@@ -489,7 +488,7 @@ CONTAINS
                         FLAG_QNWFA,FLAG_QNIFA,FLAG_QNBCA, &
                         FLAG_OZONE,FLAG_QS
 
- logical, intent(in) :: mix_chem,enh_mix,rrfs_sd,smoke_dbg
+ logical, intent(in) :: mix_chem,enh_mix
 
  integer, intent(in) :: KTS,KTE
 
@@ -1187,20 +1186,6 @@ CONTAINS
             &bl_mynn_mixnumcon                           )
 
     if ( mix_chem ) then
-       if ( rrfs_sd ) then 
-          call mynn_mix_chem(kts,kte,i,                  &
-               &delt, dz1, pblh,                         &
-               &nchem, ndvel,                            &
-               &chem1, vdep, settle1,                    &
-               &rho1, flt,                               &
-               &tcd1, qcd1,                              &
-               &dfh1,                                    &
-               &s_aw1,s_awchem1,                         &
-               &emis_ant_no,                             &
-               &frp, rrfs_sd,                            &
-               &enh_mix, smoke_dbg,                      &
-               &bl_mynn_edmf                             )
-       else
           call mynn_mix_chem(kts,kte,i,                  &
                &delt, dz1, pblh,                         &
                &nchem, ndvel,                            &
@@ -1210,10 +1195,9 @@ CONTAINS
                &dfh1,                                    &
                &s_aw1,s_awchem1,                         &
                &zero,                                    &
-               &zero, rrfs_sd,                           &
-               &enh_mix, smoke_dbg,                      &
+               &zero,                                    &
+               &enh_mix,                                 &
                &bl_mynn_edmf                             )
-       endif
        do ic = 1,nchem
           do k = kts,kte
              chem1(k,ic) = max(1.e-12, chem1(k,ic))
@@ -5774,8 +5758,8 @@ SUBROUTINE mynn_mix_chem(kts,kte,i,     &
      flt, tcd, qcd,                     &
      dfh,                               &
      s_aw1, s_awchem1,                  &
-     emis_ant_no, frp, rrfs_sd,         &
-     enh_mix, smoke_dbg,                &
+     emis_ant_no, frp,                  &
+     enh_mix,                           &
      bl_mynn_edmf                       )
 
 !-------------------------------------------------------------------
@@ -5791,7 +5775,7 @@ real(kind_phys), dimension( kts:kte, nchem ), intent(in) :: settle1
 real(kind_phys), dimension( kts:kte+1,nchem), intent(in) :: s_awchem1
 real(kind_phys), dimension( ndvel ), intent(in) :: vd1
 real(kind_phys), intent(in) :: emis_ant_no,frp
-logical, intent(in) :: rrfs_sd,enh_mix,smoke_dbg
+logical, intent(in) :: enh_mix
 !local vars
 real(kind_phys), dimension(kts:kte) :: dtz,upcont,dncont
 real(kind_phys), dimension(kts:kte) :: a,b,c,d,x
@@ -5841,7 +5825,7 @@ if (bl_mynn_edmf == 1) then
 endif
 
 !Enhanced mixing over fires
-IF ( rrfs_sd .and. enh_mix ) THEN
+IF ( enh_mix ) THEN
    DO k=kts+1,kte-1
       khdz_old  = khdz(k)
       khdz_back = pblh * 0.15_kind_phys / dz(k)

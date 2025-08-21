@@ -51,7 +51,7 @@
                   bl_mynn_edmf_tke  , bl_mynn_output    , bl_mynn_mixscalars , bl_mynn_mixaerosols, &
                   bl_mynn_mixnumcon , bl_mynn_cloudmix  , bl_mynn_mixqt      , bl_mynn_ess        , &
                   errmsg            , errflg                                                        &
-                 ,mix_chem, nchem, ndvel, chem3d, settle3d, vd3d, frp_mean     , emis_ant_no        &
+                 ,mix_chem, nchem, ndvel, chem3d, settle3d, vd3d, enh_mix, frp_mean, emis_ant_no    &
                )
 
 !=================================================================================================================
@@ -238,10 +238,8 @@
  real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme),optional:: frp_mean,emis_ant_no
  real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme,ndvel),optional:: vd3d
  real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme,nchem),optional:: chem3d,settle3d
- logical, parameter :: &
-    rrfs_sd    =.false.,  &
-    smoke_dbg  =.false.,  &
-    enh_mix    =.false.
+ logical,intent(in),optional:: enh_mix
+
  real(kind=kind_phys):: frp1,emisant_no1
  real(kind=kind_phys),dimension(ndvel):: vd1
  real(kind=kind_phys),dimension(kts:kte,nchem):: chem1,settle1
@@ -501,8 +499,7 @@
             flag_ozone      = f_qoz         , flag_qnc    = f_nc          , flag_qni    = f_ni         , &
             flag_qnwfa      = f_nwfa        , flag_qnifa  = f_nifa        , flag_qnbca  = f_nbca       , &
             pattern_spp_pbl1= pattern_spp1  ,                                                            &
-            mix_chem        = mix_chem      , enh_mix     = enh_mix       , rrfs_sd     = rrfs_sd      , &
-            smoke_dbg       = smoke_dbg     , nchem       = nchem         ,                              &
+            mix_chem        = mix_chem      , enh_mix     = enh_mix       , nchem       = nchem        , &
             ndvel           = ndvel         , chem1       = chem1         , emis_ant_no = emisant_no1  , &
             frp             = frp1          , vdep        = vd1           , settle1     = settle1      , &
             nscalars        = nscalars      , scalars     = scalars       ,                              &

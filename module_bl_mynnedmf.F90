@@ -1872,7 +1872,7 @@ CONTAINS
         alp5 = p3
 
         ! Impose limits on the height integration for elt and the transition layer depth
-        pblh2= min(10000.,zw(kte-2))  !originally integrated to model top, not just 10 km.
+        pblh2= pblh+dz(kts)          !originally integrated to model top, not just pblh.
         h1   = max(0.3*pblh2,mindz)
         h1   = min(h1,maxdz)         ! 1/2 transition layer depth
         h2   = h1/2.0                ! 1/4 transition layer depth

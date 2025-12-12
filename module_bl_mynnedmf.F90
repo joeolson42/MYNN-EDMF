@@ -1604,7 +1604,7 @@ CONTAINS
  real(kind_phys):: a2fac,thv1,thv0,eth0,eth1,lambda,qsat, &
       &xl,tabs,clam0,clam,wt,mfi,qkei,cldfrai,ugrid,      &
       &uonset,taper
- real(kind_phys), parameter:: thvp = 0.25 !percentage of thv in blend
+ real(kind_phys), parameter:: thvp = 0.0 !0.25 !percentage of thv in blend
 
 !    ev  = 2.5e6
 !    tv0 = 0.61*tref
@@ -1872,7 +1872,7 @@ CONTAINS
         alp5 = p3
 
         ! Impose limits on the height integration for elt and the transition layer depth
-        pblh2= min(10000.,zw(kte-2))  !originally integrated to model top, not just 10 km.
+        pblh2= pblh+dz(kts)          !originally integrated to model top, not just pblh.
         h1   = max(0.3*pblh2,mindz)
         h1   = min(h1,maxdz)         ! 1/2 transition layer depth
         h2   = h1/2.0                ! 1/4 transition layer depth
@@ -3650,14 +3650,14 @@ END IF
     real(kind_phys), dimension(kts:kte), intent(inout) :: vt,vq,sgm
 
     real(kind_phys), dimension(kts:kte) :: alp,a,bet,b,ql,q1,RH
-    real(kind_phys), dimension(kts:kte), intent(out) :: qc_bl1,qi_bl1, &
+    real(kind_phys), dimension(kts:kte), intent(out) :: qc_bl1,qi_bl1,   &
          &cldfra_bl1
     DOUBLE PRECISION :: t3sq, r3sq, c3sq
 
     real(kind_phys):: qsl,esat,qsat,dqsl,cld0,q1k,qlk,eq1,qll,           &
          &q2p,pt,rac,qt,t,xl,rsl,cpm,Fng,qww,alpha,beta,bb,sgmq,sgmc,    &
          &ls,wt,wt2,cld_factor,fac_damp,liq_frac,ql_ice,ql_water,        &
-         &qmq,qsat_tk,q1_rh,rh_hack,zsl,maxqc,cldfra_rh,cldfra_qsq,      &
+         &qmq,qsat_tk,q1_rh,rh_adj,zsl,maxqc,cldfra_rh,cldfra_qsq,       &
          &cldfra_rh0,cldfra_rh1,cldfra_qsq0,cldfra_qsq1,clim,qlim
     !lower limits for sgm (for mixing ratio estimates) in case sgm falls out (% of qw)
     real(kind_phys), parameter :: qlim_sfc =0.008
@@ -3910,22 +3910,22 @@ END IF
 
            !Add condition for falling/settling into low-RH layers, so at least
            !some cloud fraction is applied for all qc, qs, and qi.
-           rh_hack= rh(k)
+           rh_adj = rh(k)
            wt2    = min(one, max(zero, zagl - pblh2)/300.) !0 in pbl, 1 aloft
            !ensure adequate RH & q1 when qi is at least 1e-9 (above the PBLH)
            if ((qi(k)+qs(k))>1.e-9 .and. (zagl .gt. pblh2)) then
-              rh_hack =min(rhmax, rhcrit + wt2*0.045_kind_phys*(max(zero,9.0_kind_phys + log10(qi(k)+qs(k))) ))
-              rh(k)   =max(rh(k), rh_hack)
+              rh_adj  =min(rhmax, rhcrit + wt2*0.045_kind_phys*(max(zero,9.0_kind_phys + log10(qi(k)+qs(k))) ))
+              rh(k)   =max(rh(k), rh_adj)
               !add rh-based q1
-              q1_rh   =-3. + 3.*(rh(k)-rhcrit)/(one-rhcrit)
+              q1_rh   =-3. + three*(rh(k)-rhcrit)/(one-rhcrit)
               q1(k)   =max(q1_rh, q1(k) )
            endif
            !ensure adequate rh & q1 when qc is at least 1e-6 (above the PBLH)
            if (qc(k)>1.e-5 .and. (zagl .gt. pblh2)) then
-              rh_hack =min(rhmax, rhcrit + wt2*0.12_kind_phys*(max(zero,5.0_kind_phys + log10(qc(k))) ))
-              rh(k)   =max(rh(k), rh_hack)
+              rh_adj  =min(rhmax, rhcrit + wt2*0.12_kind_phys*(max(zero,5.0_kind_phys + log10(qc(k))) ))
+              rh(k)   =max(rh(k), rh_adj)
               !add rh-based q1
-              q1_rh   =-3. + 3.*(rh(k)-rhcrit)/(one-rhcrit)
+              q1_rh   =-3. + three*(rh(k)-rhcrit)/(one-rhcrit)
               q1(k)   =max(q1_rh, q1(k) )
            endif
 
@@ -7897,13 +7897,14 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
 
    !downdraft properties
         integer, parameter::                                          &
-            & ndd    = 5,               &  !number of downdrafts
-            & kmin   = 3                   !lowest k-level where downdrafts can start
+            & ndd        = 5,           &  !number of downdrafts
+            & kmin       = 3               !lowest k-level where downdrafts can start
         real(kind_phys),parameter ::                                  &
-            & minddd = 400.,            &  !min downdraft diameter (m)
-            & maxddd = 1000,            &  !max downdraft diameter (m)
-            & zmin   = 50.,             &  !lowest height where downdrafts can start
-            & dz200  = 200.                !depth over which other parameters are normalized to
+            & minddd     = 50., & ! 400.,            &  !min downdraft diameter (m)
+            & maxddd     = 500.,& !1000,            &  !max downdraft diameter (m)
+            & zmin       = 50.,         &  !lowest height where downdrafts can start
+            & dz200      = 200.,        &  !depth over which other parameters are normalized to
+            & ct_cooling = -0.00011        !activation threshold of ~ -10 C cooling at cloud top per day
         real(kind_phys)::                                             &
             & maxdd2,                   &  !variable max downdraft diameter (m)
             &    ddd,                   &  !downdraft diameter
@@ -7929,7 +7930,7 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
         real(kind_phys):: jump_thv,jump_qt,jump_thetal,               &
             refthl,refthv,refthlv,refqt,refqc,refqi,refqnc,refqni,    &
             refqnwfa,refqnifa,refu,refv,refqke,refqt2,reftk,refp,     &
-            qx_k,qx_km1,refthvm1,cftop,ac_wsp,wspd_pbl
+            qx_k,qx_km1,refthvm1,cftop,crate,ac_wsp,wspd_pbl
 
   ! dd specific internal variables
         real(kind_phys):: radflux, f0, wstar_rad, dz_ent
@@ -7987,36 +7988,35 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
    sd_awv     =zero
    sd_awqke   =zero
 
-  ! determine maximum downdraft width and increments
-   maxdd2     =min(maxddd, 1.2*dx)
-   dl         =max(maxdd2-minddd, zero)/real(ndd-1)
-
-  ! first, check for stratocumulus-topped pbl with cooling at the cloud top.
+   ! first, check for stratocumulus-topped pbl with cooling at the cloud top.
    cloudflg   =.false.
    singlelayer=.false.
    qltop      =1     !initialize
    qlbase     =1     !initialize
-   do k = max(kmin+1,kpbl-2),kpbl+10
-      qx_k    =max(qt(k)  , qc_bl1(k)  +qi_bl1(k))   !total clouds at k
-      qx_km1  =max(qt(k-1), qc_bl1(k-1)+qi_bl1(k-1)) !total clouds at k-1
-!      if (qx_k  .lt. 1.e-6 .and. cldfra_bl(k-1).lt.0.1 .and. &
-!          qx_km1.gt. 1.e-6 .and. cldfra_bl(k)  .gt.0.5 .and. &
-      !---------------------------------criteria for downdraft activation
-      if ((cldfra_bl1(k-1).gt.0.5       ) .and. & !1) stratocumulus exists
-!          (cldfra_bl1(k)  .lt.0.1       ) .and. & !2) clear above
-          (rthraten(k-1) .lt. -0.000025)  .and. & !3) radiative cooling
-          (           dl .gt.zero       )) then   !4) widest downdraft > thinnest
-         cloudflg =.true. ! found sc cloud
-         qltop    =k-1    ! index for sc cloud top
+   crate      =zero
+   do k = max(kmin+1,kpbl-5),min(kpbl+20,kte-1)
+      !---------------------------------criteria for downdraft activation:
+      if ((cldfra_bl1(k-1).gt.0.5       ) .and. &   !1) stratocumulus exists
+          (rthraten(k-1)  .lt.ct_cooling)) then     !2) significant radiative cooling
+         ! found sc cloud with significant radiative cooling
+         cloudflg =.true.
+         qltop    =k-1               ! index for sc cloud top
          cftop    =cldfra_bl1(k-1)
+         crate    =min(crate, rthraten(k-1))  !maximum cooling rate at cloud top
          if (cldfra_bl1(k-2).lt.0.1)singlelayer=.true.
       endif
    enddo
 
-   !found sc cloud, trigger downdrafts
-   if (cloudflg) then
+   ! determine maximum downdraft width and increments
+   maxdd2     =min(maxddd, 1.2*dx)                  !1) grid-scale dependence
+   maxdd2     =min(maxdd2, -1212121.*crate -30.)    !2) function of cloud top cooling rate
+   maxdd2     =min(maxdd2, p5*zw(qltop+1))          !3) limited for low cloud-top heights
+   dl         =max(maxdd2-minddd, zero)/real(ndd-1)
+   
+   !found sc cloud with conditions for downdrafts; compute downdrafts
+   if (cloudflg .and. ( dl .gt. zero)) then
       do k = qltop, kts, -1
-         qx_k    =max(qt(k)  , qc_bl1(k) +qi_bl1(k))   !total clouds at k
+         qx_k =max(qt(k), qc_bl1(k) +qi_bl1(k))     !total cloud water and ice at k
          if (qx_k .gt. 1e-6) then
             qlbase = k ! index for sc cloud base
          endif
@@ -8034,25 +8034,25 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
          radflux = radflux * cp / grav * ( p(k) - p(k+1) ) ! converts k/s to w/m^2
          if ( radflux < zero ) f0 = abs(radflux) + f0
       enddo
-      f0 = min(max(f0, 1.0_kind_phys), 200._kind_phys)  !total radiative cooling (w/m2)
+      f0 = min(max(f0, one), 200._kind_phys)  !total radiative cooling (w/m2)
 
       !allow the total fractional area of the downdrafts (add) to be proportional
       !to the radiative forcing:
-      !for  50 w/m2, add = 0.20
-      !for 100 w/m2, add = 0.30
-      !for 150 w/m2, add = 0.40
-      add = min( 0.1 + f0*0.002, 0.3_kind_phys)
+      !for  50 w/m2, add = 0.10
+      !for 100 w/m2, add = 0.20
+      !for 150 w/m2, add = 0.30
+      add = min( f0*0.002, 0.3_kind_phys)
       !taper off area for high wind speeds
       wspd_pbl=SQRT(MAX(u(kts)**2 + v(kts)**2, 0.01_kind_phys))
       if (wspd_pbl .le. 10.) then
          ac_wsp = one
       else
-         ac_wsp = one - min((wspd_pbl - 10.0)/15., 1.0_kind_phys)
+         ac_wsp = one - min((wspd_pbl - 10.0)/15., one)
       endif
       add  = add * ac_wsp
 
       !find inversion strength across cloud top entrainment zone--normalized to 200 m vertical grid spacing
-      dz_ent      = 0.5 * (dz(qltop+1) + dz(qltop))
+      dz_ent      = p5 * (dz(qltop+1) + dz(qltop))
       jump_thv    = (thv(qltop+1) - thv(qltop)) / dz_ent * dz200
       jump_qt     = (qt(qltop+1)  - qt(qltop))	/ dz_ent * dz200
       jump_thetal = (thl(qltop+1) - thl(qltop))	/ dz_ent * dz200
@@ -8095,17 +8095,17 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
       endif
 
       ! w* from radiative forcing
-      !wstar_rad = ( grav * dz_ent * f0 / (refthl * rho(ki) * cp) ) **p333
-      wstar_rad = 10.* ( grav*dz200 * f0 / (refthl * rho(ki) * cp) ) **p333
-      wstar_rad = min(max(wstar_rad, 0.1), 3.0)
+      !wstar_rad =    ( grav * dz_ent * f0 / (refthl * rho(ki) * cp) ) **p333
+      wstar_rad = 1.25 * ( grav*dz200 * f0 / (refthl * rho(ki) * cp) ) **p333
+      wstar_rad = min(max(wstar_rad, p1), three)
       ! note: since dz_ent cancels, went is not a function of dz_ent
       !went      = thv(1) / ( grav * jump_thv * dz_ent ) * &
       went      = thv(1) / ( grav * jump_thv * dz200 ) * &
-                  (0.5 * wstar_rad**3 )
+                  (p5 * wstar_rad**3 )
       qstar     = abs(went*jump_qt/wstar_rad)
       thstar    = f0/rho(ki)/cp/wstar_rad - went*jump_thv/wstar_rad
 
-      sigmaw    = 0.3 * wstar_rad ! 0.8*wstar_rad ! tuning parameter ! 0.5 was good
+      sigmaw    = 0.2 * wstar_rad ! 0.8*wstar_rad ! tuning parameter ! 0.5 was good
       sigmaqt   = 40. * qstar  ! 50 was good
       sigmath   = 1.0 * thstar ! 0.5 was good
 
@@ -8140,7 +8140,7 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
          print*,"found conditions for downdraft mixing"
          print*,"qltop=",qltop," qlbase=",qlbase
          print*,"qstar=",qstar," thstar=",thstar," went=",went
-         print*,"f0=",f0," jump_thv=",jump_thv
+         print*,"f0=",f0," jump_thv=",jump_thv,"w*rad=",wstar_rad
          print*,"u*=",ust," jump_qt=",jump_qt," fltv=",fltv
          print*,"grav=",grav," pblh=",pblh," thv(1)=",thv(1)
          print*,"p(1)=",p(1)," jump_thetal=",jump_thetal
@@ -8196,8 +8196,9 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
             !entrainment from tian and kuang (2016), with constraints
             wmin = p1 + ddd*0.0005
             !ent(k,i) = 0.33/(min(max(abs(downw(k+1,i)),wmin),0.9)*ddd)
-            ent(k,i) = 0.53/(min(max(abs(downw(k+1,i)),wmin),0.6)*ddd)
-
+            !ent(k,i) = 0.53/(min(max(abs(downw(k+1,i)),wmin),0.6)*ddd)
+            ent(k,i) = 0.26/(min(max(abs(downw(k+1,i)),wmin),0.6)*ddd)
+            
             !minimum background entrainment and 1/z enhancement near surface
             ent(k,i) = max(ent(k,i),0.0003)
             ent(k,i) = max(ent(k,i),0.06/zw(k))

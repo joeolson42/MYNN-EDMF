@@ -3650,14 +3650,14 @@ END IF
     real(kind_phys), dimension(kts:kte), intent(inout) :: vt,vq,sgm
 
     real(kind_phys), dimension(kts:kte) :: alp,a,bet,b,ql,q1,RH
-    real(kind_phys), dimension(kts:kte), intent(out) :: qc_bl1,qi_bl1, &
+    real(kind_phys), dimension(kts:kte), intent(out) :: qc_bl1,qi_bl1,   &
          &cldfra_bl1
     DOUBLE PRECISION :: t3sq, r3sq, c3sq
 
     real(kind_phys):: qsl,esat,qsat,dqsl,cld0,q1k,qlk,eq1,qll,           &
          &q2p,pt,rac,qt,t,xl,rsl,cpm,Fng,qww,alpha,beta,bb,sgmq,sgmc,    &
          &ls,wt,wt2,cld_factor,fac_damp,liq_frac,ql_ice,ql_water,        &
-         &qmq,qsat_tk,q1_rh,rh_hack,zsl,maxqc,cldfra_rh,cldfra_qsq,      &
+         &qmq,qsat_tk,q1_rh,rh_adj,zsl,maxqc,cldfra_rh,cldfra_qsq,       &
          &cldfra_rh0,cldfra_rh1,cldfra_qsq0,cldfra_qsq1,clim,qlim
     !lower limits for sgm (for mixing ratio estimates) in case sgm falls out (% of qw)
     real(kind_phys), parameter :: qlim_sfc =0.008
@@ -3910,22 +3910,22 @@ END IF
 
            !Add condition for falling/settling into low-RH layers, so at least
            !some cloud fraction is applied for all qc, qs, and qi.
-           rh_hack= rh(k)
+           rh_adj = rh(k)
            wt2    = min(one, max(zero, zagl - pblh2)/300.) !0 in pbl, 1 aloft
            !ensure adequate RH & q1 when qi is at least 1e-9 (above the PBLH)
            if ((qi(k)+qs(k))>1.e-9 .and. (zagl .gt. pblh2)) then
-              rh_hack =min(rhmax, rhcrit + wt2*0.045_kind_phys*(max(zero,9.0_kind_phys + log10(qi(k)+qs(k))) ))
-              rh(k)   =max(rh(k), rh_hack)
+              rh_adj  =min(rhmax, rhcrit + wt2*0.045_kind_phys*(max(zero,9.0_kind_phys + log10(qi(k)+qs(k))) ))
+              rh(k)   =max(rh(k), rh_adj)
               !add rh-based q1
-              q1_rh   =-3. + 3.*(rh(k)-rhcrit)/(one-rhcrit)
+              q1_rh   =-3. + three*(rh(k)-rhcrit)/(one-rhcrit)
               q1(k)   =max(q1_rh, q1(k) )
            endif
            !ensure adequate rh & q1 when qc is at least 1e-6 (above the PBLH)
            if (qc(k)>1.e-5 .and. (zagl .gt. pblh2)) then
-              rh_hack =min(rhmax, rhcrit + wt2*0.12_kind_phys*(max(zero,5.0_kind_phys + log10(qc(k))) ))
-              rh(k)   =max(rh(k), rh_hack)
+              rh_adj  =min(rhmax, rhcrit + wt2*0.12_kind_phys*(max(zero,5.0_kind_phys + log10(qc(k))) ))
+              rh(k)   =max(rh(k), rh_adj)
               !add rh-based q1
-              q1_rh   =-3. + 3.*(rh(k)-rhcrit)/(one-rhcrit)
+              q1_rh   =-3. + three*(rh(k)-rhcrit)/(one-rhcrit)
               q1(k)   =max(q1_rh, q1(k) )
            endif
 

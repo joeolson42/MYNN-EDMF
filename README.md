@@ -13,6 +13,7 @@ All future development of the MYNN-EDMF that is intended for NOAA’s operationa
 will be hosted in this public-facing submodule repository.
 
 The most up-to-date documentation of the MYNN-EDMF is new 2026 tech note:
+
 Olson, Joseph B., Wayne M. Angevine, David D. Turner, Xia Sun, Julia M. Simonson,
 Clark Evans, Jaymes S. Kenyon, Haiqin Li, Jordan Schnell, Franciano S. Puhales,
 Tiziana Cherubini, Weiwei Li, and Man Zhang, 2026: A Description of the MYNN-EDMF

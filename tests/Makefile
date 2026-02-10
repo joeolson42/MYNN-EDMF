@@ -1,6 +1,15 @@
 FC     = gfortran
 FCFLAGS = -Dstandalone -fdefault-real-8 -fdefault-double-8 -g \
           -fbacktrace -fcheck=all \
+          -fcheck=all \
+          -Wall -Wextra -pedantic \
+          -Wuninitialized -Wmaybe-uninitialized \
+          -ffpe-trap=invalid,zero,overflow \
+          -finit-real=snan \
+          -finit-integer=-999 \
+          -finit-logical=false \
+          -finit-character=65 \
+          -ffpe-summary=all \
           -I$(NFHOME)/include
 LDFLAGS = -L$(NFHOME)/lib -lnetcdff -lnetcdf
 

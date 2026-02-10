@@ -36,15 +36,15 @@ module module_bl_mynnedmf_wrf_tests
        flag_iter = .true.
        flag_qc=.true.
        flag_qi=.true.
-       flag_qs=.false.
+       flag_qs=.true.
        flag_qnc=.false.
        flag_qni=.false.
        flag_qnifa=.false.
        flag_qnwfa=.false.
        flag_qnbca=.false.
-       bl_mynn_tkeadvect=.false.
+       bl_mynn_tkeadvect=.true.
 
-       bl_mynn_output=0                              
+       bl_mynn_output=1                              
 
     end subroutine init_mynn_edmf_flags
 
@@ -103,8 +103,9 @@ module module_bl_mynnedmf_wrf_tests
         !real, allocatable, intent(inout) :: u(:,:,:), 
         real, allocatable :: u(:,:,:),v(:,:,:), w(:,:,:), th(:,:,:), t3d(:,:,:), p(:,:,:),  &
                 exner(:,:,:), rho(:,:,:), qv(:,:,:), qc(:,:,:), qi(:,:,:),                   &
-                dz(:,:,:), rthraten(:,:,:), rublten(:,:,:), rvblten(:,:,:), rthblten(:,:,:), &
+                dz(:,:,:),  &
                 exch_h(:,:,:), exch_m(:,:,:), pattern_spp_pbl(:,:,:)
+        real, allocatable ::  rthraten(:,:,:), rublten(:,:,:), rvblten(:,:,:), rthblten(:,:,:)
 
         !optional and output 3D arrays
         real, allocatable :: qc_bl(:,:,:), qi_bl(:,:,:), cldfra_bl(:,:,:)
@@ -121,8 +122,8 @@ module module_bl_mynnedmf_wrf_tests
                 edmf_qc(:,:,:), edmf_qt(:,:,:),edmf_thl(:,:,:),edmf_w(:,:,:),det_thl3d(:,:,:)
 
 
-      ! Open NetCDF file
-      print*,'trim(case)',trim(case)
+        ! Open NetCDF file
+        print*,'trim(case)',trim(case)
         status = nf90_open('./data/input_'//trim(case)//'.nc', NF90_NOWRITE, ncid)
         print*,'status',status
         if (status /= nf90_noerr) then
@@ -160,7 +161,7 @@ module module_bl_mynnedmf_wrf_tests
         jde = 2
         kds = 1
         kde = nz
-        delt = 18.*200.
+        delt = 18.
         dxc = 3000.
 
         allocate(time(nt))
@@ -255,9 +256,8 @@ module module_bl_mynnedmf_wrf_tests
            &  IMS,IME,JMS,JME,KMS,KME,                     &
            &  ITS,ITE,JTS,JTE,KTS,KTE                      )
         ! Loop through each timestep
-        do t = 1, nt
+        do t = 2, 25 !nt
             print *, "Processing timestep ", t, " of ", nt
-            print *, "Time = ", time(t)
 
             ! Read 2D for this timestep: (t,1,1)
             status = nf90_inq_varid(ncid, "XLAND", varid)
@@ -267,7 +267,6 @@ module module_bl_mynnedmf_wrf_tests
             status = nf90_inq_varid(ncid, "PSFC", varid)
             status = nf90_get_var(ncid, varid, ps, &
                                   start=[1,1,t], count=[1,1,1])
-
 
             status = nf90_inq_varid(ncid, "TSK", varid)
             status = nf90_get_var(ncid, varid, ts, &
@@ -280,7 +279,7 @@ module module_bl_mynnedmf_wrf_tests
             status = nf90_inq_varid(ncid, "UST", varid)
             status = nf90_get_var(ncid, varid, ust, &
                                   start=[1,1,t], count=[1,1,1])
-            
+
             status = nf90_inq_varid(ncid, "FLHC", varid)
             status = nf90_get_var(ncid, varid, ch, &
                                   start=[1,1,t], count=[1,1,1])
@@ -322,30 +321,51 @@ module module_bl_mynnedmf_wrf_tests
             !     print *, "  Dimension", i, ":", trim(dimname), " = ", dimlen(i)
             ! end do
 
-            ! if (t==1) then
+            if (t==2) then
+              initflag = 1
               status = nf90_inq_varid(ncid, "U_mass", varid)
               status = nf90_get_var(ncid, varid, u(1,:,1), &
                                     start=[1,t], count=[nz,1])
-            ! else
-            !   u(1,:,1)=u(1,:,1)+RUBLTEN(1,:,1)*delt
-            ! end if
-            status = nf90_inq_varid(ncid, "V_mass", varid)
-            status = nf90_get_var(ncid, varid, v(1,:,1), &
-                                  start=[1,t], count=[nz,1])
+
+              status = nf90_inq_varid(ncid, "V_mass", varid)
+              status = nf90_get_var(ncid, varid, v(1,:,1), &
+                                    start=[1,t], count=[nz,1])
+
+              status = nf90_inq_varid(ncid, "TH", varid)
+              status = nf90_get_var(ncid, varid, th(1,:,1), &
+                                    start=[1,1,1,t], count=[1,1,nz,1])
+
+              status = nf90_inq_varid(ncid, "QVAPOR", varid)
+              status = nf90_get_var(ncid, varid, qv(1,:,1), &
+                                    start=[1,1,1,t], count=[1,1,nz,1])
+
+              status = nf90_inq_varid(ncid, "QCLOUD", varid)
+              status = nf90_get_var(ncid, varid, qc(1,:,1), &
+                                    start=[1,1,1,t], count=[1,1,nz,1])
+
+              status = nf90_inq_varid(ncid, "QICE", varid)
+              status = nf90_get_var(ncid, varid, qi(1,:,1), &
+                                    start=[1,1,1,t], count=[1,1,nz,1])
+            else
+              initflag = 0
+              u(1,:,1)=u(1,:,1)+RUBLTEN(1,:,1)*delt
+              v(1,:,1)=v(1,:,1)+RVBLTEN(1,:,1)*delt
+              th(1,:,1)=th(1,:,1)+RTHBLTEN(1,:,1)*delt
+              qc(1,:,1)=qc(1,:,1)+RQCBLTEN(1,:,1)*delt
+              qv(1,:,1)=qv(1,:,1)+RQVBLTEN(1,:,1)*delt
+              qi(1,:,1)=qi(1,:,1)+RQIBLTEN(1,:,1)*delt
+            end if
 
             status = nf90_inq_varid(ncid, "W_mass", varid)
             status = nf90_get_var(ncid, varid, w(1,:,1), &
                                   start=[1,1,1,t], count=[1,1,nz,1])
 
-            status = nf90_inq_varid(ncid, "TH", varid)
-            status = nf90_get_var(ncid, varid, th(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
 
             status = nf90_inq_varid(ncid, "TK", varid)
             status = nf90_get_var(ncid, varid, t3d(1,:,1), &
                                   start=[1,1,1,t], count=[1,1,nz,1])
 
-            status = nf90_inq_varid(ncid, "P", varid)
+            status = nf90_inq_varid(ncid, "PTOTAL", varid)
             status = nf90_get_var(ncid, varid, p(1,:,1), &
                                   start=[1,1,1,t], count=[1,1,nz,1])
 
@@ -355,35 +375,7 @@ module module_bl_mynnedmf_wrf_tests
 
             status = nf90_inq_varid(ncid, "RHO", varid)
             status = nf90_get_var(ncid, varid, rho(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "QVAPOR", varid)
-            status = nf90_get_var(ncid, varid, qv(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "QCLOUD", varid)
-            status = nf90_get_var(ncid, varid, qc(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "QICE", varid)
-            status = nf90_get_var(ncid, varid, qi(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "RTHRATEN", varid)
-            status = nf90_get_var(ncid, varid, rthraten(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "RUBLTEN", varid)
-            status = nf90_get_var(ncid, varid, rublten(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "RVBLTEN", varid)
-            status = nf90_get_var(ncid, varid, rvblten(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
-
-            status = nf90_inq_varid(ncid, "RTHBLTEN", varid)
-            status = nf90_get_var(ncid, varid, rthblten(1,:,1), &
-                                  start=[1,1,1,t], count=[1,1,nz,1])
+                                  start=[1,1,1,t+1], count=[1,1,nz,1])
 
             status = nf90_inq_varid(ncid, "EXCH_H_mass", varid)
             status = nf90_get_var(ncid, varid, exch_h(1,:,1), &
@@ -391,8 +383,7 @@ module module_bl_mynnedmf_wrf_tests
             status = nf90_inq_varid(ncid, "EXCH_M_mass", varid)
             status = nf90_get_var(ncid, varid, exch_m(1,:,1), &
                                   start=[1,1,1,t], count=[1,1,nz,1])
-            print*,u(1,:,1)
-            !print*,RUBLTEN(1,:,1)  
+
             call mynnedmf_driver    &
                  (ids               , ide               , jds                , jde                , &
                   kds               , kde               , ims                , ime                , &
@@ -438,15 +429,7 @@ module module_bl_mynnedmf_wrf_tests
 #endif
                )
              
-             print*, 'u', u(1,:,1)
-             ! print*,RUBLTEN(1,:,1)
-
-
-            ! u(1,:,1)=u(1,:,1)+RUBLTEN(1,:,1)*delt
-            ! print*,u(1,:,1)
-
-            
-            
+                        
         enddo
         
         ! Close file and deallocate
@@ -461,7 +444,8 @@ module module_bl_mynnedmf_wrf_tests
           kpbl,maxmf,maxwidth,pblh,qBUOY,qDISS,ztop_plume,excess_h,excess_q)
         ! deallocate 3D arrays
         deallocate(u,v,w,th,t3d,p,exner,rho,qv,qc,qi)        
-        deallocate(dz,rthraten,rublten,rvblten,rthblten,exch_h,exch_m)
+        deallocate(dz,exch_h,exch_m)
+        !deallocate(rthraten,rublten,rvblten,rthblten)
 
         deallocate(cov,det_thl3d,det_sqv3d,dqke,edmf_a,edmf_ent,edmf_qc,      &
           edmf_qt,edmf_thl,edmf_w)        

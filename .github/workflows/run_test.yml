@@ -13,6 +13,8 @@ jobs:
 
     # Environmental variables
     env:
+      NFHOME:      /usr
+      NFVERSION:   v4.5.3
       driver_ROOT: /home/runner/work/MYNN-EDMF/MYNN-EDMF
 
     # Workflow steps
@@ -20,6 +22,12 @@ jobs:
 
     - name: Checkout code (into ${driver_ROOT})
       uses: actions/checkout@v3
+
+    # NetCDF C and FORTRAN libraries
+    - name: Install NetCDF library
+      run: |
+        sudo apt-get update
+        sudo apt-get install libnetcdff-dev
 
     - name: Build unit tests
       run: |

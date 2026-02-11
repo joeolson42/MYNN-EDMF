@@ -1,6 +1,6 @@
 ## CI tests for MYNN-EDMF
 * Cases include:
-    * clr, land point (38.99°N, 67.26°W) on Aug 23, 2024 
+    * clr, land point (43.40°N, 73.02°W) on Aug 23, 2024 
 
 * Input:
 

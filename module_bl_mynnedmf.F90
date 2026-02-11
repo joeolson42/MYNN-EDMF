@@ -987,6 +987,7 @@ CONTAINS
              phh = one       /sqrt(one-cphh_unst*zet)
           end if
        endif
+       phi_m = phim(zet)
     else
        !Updated stability functions (Puhales, 2020)
        phi_m = phim(zet)
@@ -3252,7 +3253,7 @@ real(kind_phys), dimension(kts:kte) :: a,b,c,d,x
 
 real(kind_phys), dimension(kts:kte) :: rhoinv
 real(kind_phys), dimension(kts:kte+1) :: rhoz,kqdz,kmdz
-
+!------------------------------------------------------------------
 ! REGULATE THE MOMENTUM MIXING FROM THE MASS-FLUX SCHEME (on or off)
 IF (bl_mynn_edmf_tke == 0) THEN
    onoff=zero
@@ -3272,7 +3273,7 @@ DO k = kts,kte
    dtz(k)=delt/dz(k)
 END DO
 
-!JOE-add conservation + stability criteria
+!add stability criteria
 !Prepare "constants" for diffusion equation.
 !khdz = rho*Kh/dz = rho*dfh
 rhoz(kts)  =rho(kts)
@@ -3327,6 +3328,7 @@ DO k = kts,kte-1
    bp(k) = two*qkw(k) / b1l
    rp(k) = pdk(k+1) + pdk(k)
 ENDDO
+bp(kte) = zero
 
 ! Since df3q(kts)=0.0, a(1)=0.0 and b(1)=1.+dtz(k)*df3q(k+1)+bp(k)*delt.
 if (bl_mynn_edmf > 1) then

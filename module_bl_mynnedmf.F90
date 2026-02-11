@@ -114,29 +114,35 @@
 ! 1. code is 1D (in z)
 ! 2. option to advect TKE, but not the covariances and variances
 ! 3. Cranck-Nicholson replaced with the implicit scheme
-! 4. removed terrain-dependent grid since input in WRF in actual
+! 4. removed terrain-dependent grid since input in WRF/MPAS is actual
 !    distances in z[m]
-! 5. cosmetic changes to adhere to WRF standard (remove common blocks,
-!            intent etc)
+! 5. cosmetic changes to adhere to updated standards (remove common blocks,
+!    added intent, etc)
 !-------------------------------------------------------------------
-! Further modifications post-implementation
+! Further modifications post-implementation:
 !
-! 1. Addition of BouLac mixing length in the free atmosphere.
-! 2. Changed the turbulent mixing length to be integrated from the
-!    surface to the top of the BL + a transition layer depth.
-! v3.4.1:    Option to use Kitamura/Canuto modification which removes 
+! Version 1.0.0: Described by references 1-4 (above). Implemented into WRF
+!    for HRRRv1/RAPv2:
+!    1. Addition of BouLac mixing length in the free atmosphere.
+!    2. Changed the turbulent mixing length to be integrated from the
+!       surface to the top of the BL + a transition layer depth.
+!    WRFv3.4.1: Option to use Kitamura/Canuto modification which removes 
 !            the critical Richardson number and negative TKE (default).
 !            Hybrid PBL height diagnostic, which blends a theta-v-based
 !            definition in neutral/convective BL and a TKE-based definition
 !            in stable conditions.
 !            TKE budget output option
-! v3.5.0:    TKE advection option (bl_mynn_tkeadvect)
-! v3.5.1:    Fog deposition related changes.
-! v3.6.0:    Removed fog deposition from the calculation of tendencies
+! Version 2.0.0: Mods specific to WRF for HRRRv2/RAPv3:
+!    WRFv3.5.0: TKE advection option (bl_mynn_tkeadvect)
+!    WRFv3.5.1: Fog deposition related changes.
+!    WRFv3.6.0: Removed fog deposition from the calculation of tendencies
 !            Added mixing of qc, qi, qni
-!            Added output for wstar, delta, TKE_PBL, & KPBL for correct 
-!                   coupling to shcu schemes  
-! v3.8.0:    Added subgrid scale cloud output for coupling to radiation
+!            Added output for wstar, delta, TKE_PBL, & KPBL for improved 
+!                  coupling to shcu schemes
+!            Added primitive coupling of subgrid clouds to radiation, described
+!                  in the appendix of Benjamin et al. (2016).
+! Version 3.0.0: Mods specific to WRF for HRRRv3/RAPv4:
+!    WRFv3.8.0: Added subgrid scale clouds to output when coupling to radiation
 !            schemes (activated by setting icloud_bl =1 in phys namelist).
 !            Added WRF_DEBUG prints (at level 3000)
 !            Added Tripoli and Cotton (1981) correction.
@@ -154,13 +160,14 @@
 !                WRF_CHEM = 1, thanks to Wayne Angevine.
 !            Added scale-aware mixing length, following Junshi Ito's work
 !                Ito et al. (2015, BLM).
-! v3.9.0    Improvement to the mass-flux scheme (dynamic number of plumes,
+! Version 4.0.0: Mods specific to WRF for HRRRv4/RAPv5:
+!    WRFv3.9.0: Improvement to the mass-flux scheme (dynamic number of plumes,
 !                better plume/cloud depth, significant speed up, better cloud
 !                fraction). 
 !            Added Stochastic Parameter Perturbation (SPP) implementation.
 !            Many miscellaneous tweaks to the mixing lengths and stratus
 !                component of the subgrid clouds.
-! v.4.0      Removed or added alternatives to WRF-specific functions/modules
+!    WRFv.4.0: Removed or added alternatives to WRF-specific functions/modules
 !                for the sake of portability to other models.
 !                the sake of portability to other models.
 !            Further refinement of mass-flux scheme from SCM experiments with
@@ -174,7 +181,7 @@
 !                conservative. Impact seems very small.
 !            Many miscellaneous tweaks to the mixing lengths and stratus
 !                component of the subgrid-scale (SGS) clouds.
-! v4.1       Big improvements in downward SW radiation due to revision of subgrid clouds
+!    WRFv4.1: Big improvements in downward SW radiation due to revision of subgrid clouds
 !                - better cloud fraction and subgrid scale mixing ratios.
 !                - may experience a small cool bias during the daytime now that high 
 !                  SW-down bias is greatly reduced...
@@ -200,7 +207,7 @@
 !                - improves TKE in SGS clouds
 !            Added heating due to dissipation of TKE (small impact, maybe + 0.1 C daytime PBL temp)
 !            Misc changes made for FV3/MPAS compatibility
-! v4.2       A series of small tweaks to help reduce a cold bias in the PBL:
+!     WRFv4.2: A series of small tweaks to help reduce a cold bias in the PBL:
 !                - slight increase in diffusion in convective conditions
 !                - relaxed criteria for mass-flux activation/strength
 !                - added capability to cycle TKE for continuity in hourly updating HRRR
@@ -224,7 +231,8 @@
 !            Misc small-impact bugfixes:
 !                1) dz was incorrectly indexed in mym_condensation
 !                2) configurations with icloud_bl = 0 were using uninitialized arrays
-! v4.5 / CCPP
+! Version 5.0.0: Mods stemming from both RRFS development and community development in WRF:
+!     WRFv4.5 / CCPP
 !            This version includes many modifications that proved valuable in the global
 !            framework and removes some key lingering bugs in the mixing of chemical species.
 !            TKE Budget output fixed (Puhales, 2020-12)
@@ -240,7 +248,7 @@
 !                bl_mynn_cloudpdf = 2 (Chab-Becht).
 !            Removed WRF_CHEM dependencies.
 !            Many miscellaneous tweaks.
-! v4.6 / CCPP
+!     WRFv4.6 / CCPP
 !            Some code optimization. Removed many conditions from loops. Redesigned the mass-
 !                flux scheme to use 8 plumes instead of a variable n plumes. This results in
 !                the removal of the output variable "nudprafts" and adds maxwidth and ztop_plume.
@@ -253,7 +261,10 @@
 !            Bug fix for the momentum transport.
 !            Lots of code cleanup: removal of test code, comments, changing text case, etc.
 !            Many misc tuning/tweaks.
-! v4.8 / CCPP
+! Version 6.0.0: Mods stemming from both RRFS development and community development in WRF.
+!     This version marks the begining of the MYNN-EDMF submodule repository, where all
+!     development is now tracked in a public-facing github repository (https://github.com/NCAR/MYNN-EDMF.git).
+!     WRFv4.8 / CCPP
 !            Many updates captured in the Olson et al. (2026) MYNN-EDMF tech note (see listed
 !            references above).
 ! Many of these changes are now documented in references listed above.
@@ -323,6 +334,7 @@ MODULE module_bl_mynnedmf
       &forty          = 40.0,    &
       &fifty          = 50.0,    &
       &hundred        =100.0,    &
+      &p01            =  0.01,   &
       &p1             =  0.1,    &
       &p2             =  0.2,    &
       &p25            =  0.25,   &
@@ -535,7 +547,7 @@ CONTAINS
        qc_bl1,qi_bl1,cldfra_bl1,edmf_a1,edmf_w1,                    &
        edmf_qt1,edmf_thl1,edmf_ent1,edmf_qc1,                       &
        sub_thl1,sub_sqv1,det_thl1,det_sqv1
- real(kind_phys), dimension(kts:kte), intent(inout)   ::            &
+ real(kind_phys), dimension(kts:kte), intent(inout), optional ::    &
        qwt1,qshear1,qbuoy1,qdiss1,dqke1
  real(kind_phys), dimension(kts:kte), intent(out)     ::            & !interface
        kh1,km1
@@ -563,6 +575,7 @@ CONTAINS
  integer, intent(in) ::   nscalars 
  real(kind_phys), dimension(kts:kte,nscalars), intent(inout) :: scalars
  real(kind_phys), dimension(kts:kte+1,nscalars)      :: s_awscalars1
+
 !local vars
 !mass-flux variables
  real(kind_phys), dimension(kts:kte) ::                             &
@@ -749,7 +762,7 @@ CONTAINS
           !simple PBLH form of Koracin and Berkowicz (1988, BLM)
           !to linearly taper off tke towards top of PBL.
           do k=kts,kte
-             qke1(k)=five * ust * MAX((ust*700. - zw1(k))/(MAX(ust,0.01)*700.), 0.01)
+             qke1(k)=five * ust * MAX((ust*700._kind_phys - zw1(k))/(MAX(ust,p01)*700.), p01)
           enddo
        endif
 
@@ -1412,7 +1425,7 @@ CONTAINS
        qkw(k)= zero
        qtw(k)= zero
     END DO
-    ustm = max(0.01_kind_phys, ust)
+    ustm = max(p01, ust)
 !
 !> - Call mym_level2() to calculate the stability functions at level 2.
     CALL mym_level2 ( kts,kte,                      &
@@ -1430,11 +1443,11 @@ CONTAINS
     el(kts) = zero
     IF (INITIALIZE_QKE) THEN
        !qke(kts) = ust**2 * ( b1*pmz )**(2.0/3.0)
-       qke(kts) = 1.5 * ustm**2 * ( b1*pmz )**p666
+       qke(kts) = 1.5_kind_phys * ustm**2 * ( b1*pmz )**p666
        DO k = kts+1,kte
           !qke(k) = 0.0
           !linearly taper off towards top of pbl
-          qke(k)=qke(kts)*MAX((ust*700. - zw(k))/(ustm*700.), 0.01)
+          qke(k)=qke(kts)*MAX((ust*700._kind_phys - zw(k))/(ustm*700._kind_phys), p01)
        ENDDO
     ENDIF
 !
@@ -1504,7 +1517,7 @@ CONTAINS
           b1l = b1*0.25*( el(k+1)+el(k) )
           !tmpq=MAX(b1l*( pdk(k+1)+pdk(k) ),qkemin)
           !add MIN to limit unreasonable QKE
-          tmpq=MIN(MAX(b1l*( pdk(k+1)+pdk(k) ),qkemin),125.)
+          tmpq=MIN(MAX(b1l*( pdk(k+1)+pdk(k) ),qkemin),125._kind_phys)
           !print*,'tmpq=',tmpq,pdk(k+1),pdk(k)
           IF (INITIALIZE_QKE)THEN
              qke(k) = tmpq**p666
@@ -2646,7 +2659,7 @@ CONTAINS
     real(kind_phys), dimension(kts:kte), intent(out) :: dfm,dfh,dfq,       &
          &pdk,pdt,pdq,pdc,tcd,qcd,el
 
-    real(kind_phys), dimension(kts:kte), intent(inout) ::                  &
+    real(kind_phys), dimension(kts:kte), intent(inout), optional ::        &
          qWT1,qSHEAR1,qBUOY1,qDISS1
     real(kind_phys):: q3sq_old,qWTP_old,qWTP_new
     real(kind_phys):: dudz,dvdz,dTdz,upwp,vpwp,Tpwp
@@ -8314,58 +8327,59 @@ subroutine ddmp_mf(kts,kte,dt,dx,zw,dz,p,            &
             endif
          enddo
       enddo
+
+      downw(1,:) = 0. !make sure downdrafts do not penetrate the surface
+      downa(1,:) = 0.
+
+      !
+      ! combine all downdrafts into one averaged downdraft
+      !
+      do k=qltop,kts,-1
+         do i=1,ndd
+            edmf_a_dd(k)  =edmf_a_dd(k)  +downa(k,i)
+            edmf_w_dd(k)  =edmf_w_dd(k)  +downa(k,i)*downw(k,i)
+            edmf_qt_dd(k) =edmf_qt_dd(k) +downa(k,i)*downqt(k,i)
+            edmf_thl_dd(k)=edmf_thl_dd(k)+downa(k,i)*downthl(k,i)
+            edmf_ent_dd(k)=edmf_ent_dd(k)+downa(k,i)*ent(k,i)
+            edmf_qc_dd(k) =edmf_qc_dd(k) +downa(k,i)*downqc(k,i)
+         enddo
+
+         if (edmf_a_dd(k) > 0.) then
+            edmf_w_dd(k)  =edmf_w_dd(k)  /edmf_a_dd(k)
+            edmf_qt_dd(k) =edmf_qt_dd(k) /edmf_a_dd(k)
+            edmf_thl_dd(k)=edmf_thl_dd(k)/edmf_a_dd(k)
+            edmf_ent_dd(k)=edmf_ent_dd(k)/edmf_a_dd(k)
+            edmf_qc_dd(k) =edmf_qc_dd(k) /edmf_a_dd(k)
+         endif
+         !instead of dTKE/dt = 1/2 w^3, multiply by 2 for QKE.
+         tkeprod_dn(k)=(abs(edmf_w_dd(k))**3)*edmf_a_dd(k)/(b1*max(el(k),0.2))
+      enddo
+      ! add tke source for entrainment at layer above cloud. use same area
+      ! above cloud as used in the initialized downdraft area.
+      tkeprod_dn(qltop+1)=went*edmf_a_dd(qltop)/(b1*max(el(qltop+1),0.1)) 
+
+      !
+      ! compute variables needed for solver
+      !
+      do k=kts,qltop
+         rho_int = (rho(k)*dz(k+1)+rho(k+1)*dz(k))/(dz(k+1)+dz(k))
+         do i=1,ndd
+            sd_aw(k)   =sd_aw(k)   +rho_int*downa(k,i)*abs(downw(k,i))
+            sd_awthl(k)=sd_awthl(k)+rho_int*downa(k,i)*downw(k,i)*downthl(k,i)
+            sd_awqt(k) =sd_awqt(k) +rho_int*downa(k,i)*downw(k,i)*downqt(k,i)
+            sd_awqc(k) =sd_awqc(k) +rho_int*downa(k,i)*downw(k,i)*downqc(k,i)
+            sd_awqi(k) =sd_awqi(k) +rho_int*downa(k,i)*downw(k,i)*downqi(k,i)
+            sd_awqnc(k)=sd_awqnc(k)+rho_int*downa(k,i)*downw(k,i)*downqnc(k,i)
+            sd_awqni(k)=sd_awqni(k)+rho_int*downa(k,i)*downw(k,i)*downqni(k,i)
+            sd_awqnwfa(k)=sd_awqnwfa(k)+rho_int*downa(k,i)*downw(k,i)*downqnwfa(k,i)
+            sd_awqnifa(k)=sd_awqnifa(k)+rho_int*downa(k,i)*downw(k,i)*downqnifa(k,i)
+            sd_awu(k)  =sd_awu(k)  +rho_int*downa(k,i)*downw(k,i)*downu(k,i)
+            sd_awv(k)  =sd_awv(k)  +rho_int*downa(k,i)*downw(k,i)*downv(k,i)
+         enddo
+         sd_awqv(k) = sd_awqt(k)  - sd_awqc(k) - sd_awqi(k)
+      enddo
+
    endif ! end cloud flag
-
-   downw(1,:) = 0. !make sure downdrafts do not penetrate the surface
-   downa(1,:) = 0.
-
-   !
-   ! combine all downdrafts into one averaged downdraft
-   !
-   do k=qltop,kts,-1
-      do i=1,ndd
-         edmf_a_dd(k)  =edmf_a_dd(k)  +downa(k,i)
-         edmf_w_dd(k)  =edmf_w_dd(k)  +downa(k,i)*downw(k,i)
-         edmf_qt_dd(k) =edmf_qt_dd(k) +downa(k,i)*downqt(k,i)
-         edmf_thl_dd(k)=edmf_thl_dd(k)+downa(k,i)*downthl(k,i)
-         edmf_ent_dd(k)=edmf_ent_dd(k)+downa(k,i)*ent(k,i)
-         edmf_qc_dd(k) =edmf_qc_dd(k) +downa(k,i)*downqc(k,i)
-      enddo
-
-      if (edmf_a_dd(k) > 0.) then
-         edmf_w_dd(k)  =edmf_w_dd(k)  /edmf_a_dd(k)
-         edmf_qt_dd(k) =edmf_qt_dd(k) /edmf_a_dd(k)
-         edmf_thl_dd(k)=edmf_thl_dd(k)/edmf_a_dd(k)
-         edmf_ent_dd(k)=edmf_ent_dd(k)/edmf_a_dd(k)
-         edmf_qc_dd(k) =edmf_qc_dd(k) /edmf_a_dd(k)
-      endif
-      !instead of dTKE/dt = 1/2 w^3, multiply by 2 for QKE.
-      tkeprod_dn(k)=(abs(edmf_w_dd(k))**3)*edmf_a_dd(k)/(b1*max(el(k),0.2))
-   enddo
-   ! add tke source for entrainment at layer above cloud. use same area
-   ! above cloud as used in the initialized downdraft area.
-   tkeprod_dn(qltop+1)=went*edmf_a_dd(qltop)/(b1*max(el(qltop+1),0.1)) 
-
-   !
-   ! compute variables needed for solver
-   !
-   do k=kts,qltop
-      rho_int = (rho(k)*dz(k+1)+rho(k+1)*dz(k))/(dz(k+1)+dz(k))
-      do i=1,ndd
-         sd_aw(k)   =sd_aw(k)   +rho_int*downa(k,i)*abs(downw(k,i))
-         sd_awthl(k)=sd_awthl(k)+rho_int*downa(k,i)*downw(k,i)*downthl(k,i)
-         sd_awqt(k) =sd_awqt(k) +rho_int*downa(k,i)*downw(k,i)*downqt(k,i)
-         sd_awqc(k) =sd_awqc(k) +rho_int*downa(k,i)*downw(k,i)*downqc(k,i)
-         sd_awqi(k) =sd_awqi(k) +rho_int*downa(k,i)*downw(k,i)*downqi(k,i)
-         sd_awqnc(k)=sd_awqnc(k)+rho_int*downa(k,i)*downw(k,i)*downqnc(k,i)
-         sd_awqni(k)=sd_awqni(k)+rho_int*downa(k,i)*downw(k,i)*downqni(k,i)
-         sd_awqnwfa(k)=sd_awqnwfa(k)+rho_int*downa(k,i)*downw(k,i)*downqnwfa(k,i)
-         sd_awqnifa(k)=sd_awqnifa(k)+rho_int*downa(k,i)*downw(k,i)*downqnifa(k,i)
-         sd_awu(k)  =sd_awu(k)  +rho_int*downa(k,i)*downw(k,i)*downu(k,i)
-         sd_awv(k)  =sd_awv(k)  +rho_int*downa(k,i)*downw(k,i)*downv(k,i)
-      enddo
-      sd_awqv(k) = sd_awqt(k)  - sd_awqc(k) - sd_awqi(k)
-   enddo
 
 end subroutine ddmp_mf
 !=============================================================== 

@@ -2,16 +2,16 @@
 module module_bl_mynnedmf_wrf_tests
     use module_bl_mynnedmf_driver
     use netcdf
+    use, intrinsic :: ieee_exceptions
+    use, intrinsic :: ieee_arithmetic
     ! public
     !=================================================================================================================    
     implicit none
+    logical, dimension(5) :: halt_flags
     logical :: restart,flag_iter,bl_mynn_tkeadvect,cycling
     integer :: initflag
     real,dimension(1) :: pattern_spp_pbl
     integer :: bl_mynn_output,spp_pbl
-
-
-
     logical :: &
       flag_qc,               &     ! if true,the physics package includes the cloud liquid water mixing ratio.
       flag_qi,               &     ! if true,the physics package includes the cloud ice mixing ratio.
@@ -90,7 +90,7 @@ module module_bl_mynnedmf_wrf_tests
         LOGICAL :: ALLOWED_TO_READ,RESTART
         INTEGER :: P_QC,P_QI,PARAM_FIRST_SCALAR
 
-        real, allocatable :: time(:)
+        character(len=19), allocatable :: time(:)
 
         ! 2D arrays
         real, allocatable :: xland(:,:), ps(:,:), ts(:,:), qsfc(:,:), ust(:,:), ch(:,:),     &
@@ -123,7 +123,14 @@ module module_bl_mynnedmf_wrf_tests
 
 
         ! Open NetCDF file
-        print*,'trim(case)',trim(case)
+        print*,'Case: ',trim(case)
+
+        ! Save current halting mode
+        call ieee_get_halting_mode(ieee_all, halt_flags)
+        
+        ! Disable FPE traps for NetCDF operations
+        call ieee_set_halting_mode(ieee_all, .false.)
+  
         status = nf90_open('./data/input_'//trim(case)//'.nc', NF90_NOWRITE, ncid)
         print*,'status',status
         if (status /= nf90_noerr) then
@@ -131,6 +138,9 @@ module module_bl_mynnedmf_wrf_tests
             print *, trim(nf90_strerror(status))
             stop
         endif
+
+        ! Restore original halting mode
+        call ieee_set_halting_mode(ieee_all, halt_flags)      
         
         ! Get dimensions
         status = nf90_inq_dimid(ncid, "Time", dimid_time)
@@ -164,8 +174,8 @@ module module_bl_mynnedmf_wrf_tests
         delt = 18.
         dxc = 3000.
 
-        allocate(time(nt))
-                
+       ! allocate(time(nt))
+        allocate(character(len=19) :: time(nt))        
         ! Allocate 2D arrays
         allocate(xland(ims:ime, jms:jme))
         allocate(ps(ims:ime, jms:jme))
@@ -243,7 +253,7 @@ module module_bl_mynnedmf_wrf_tests
         allocate(RQCBLTEN(ims:ime, kms:kme, jms:jme))
         allocate(RQIBLTEN(ims:ime, kms:kme, jms:jme)) 
         ! Read time variable
-        status = nf90_inq_varid(ncid, "Time", varid)
+        status = nf90_inq_varid(ncid, "Times", varid)
         status = nf90_get_var(ncid, varid, time)
         
         call init_mynn_edmf_flags()
@@ -256,7 +266,7 @@ module module_bl_mynnedmf_wrf_tests
            &  IMS,IME,JMS,JME,KMS,KME,                     &
            &  ITS,ITE,JTS,JTE,KTS,KTE                      )
         ! Loop through each timestep
-        do t = 2, 25 !nt
+        do t = 2, nt
             print *, "Processing timestep ", t, " of ", nt
 
             ! Read 2D for this timestep: (t,1,1)
@@ -429,11 +439,13 @@ module module_bl_mynnedmf_wrf_tests
 #endif
                )
              
-                        
+            
+        print *, "u: ",  u(1,:,1)       
         enddo
         
         ! Close file and deallocate
         status = nf90_close(ncid)
+
         
         print *, "Finished processing all timesteps"
 

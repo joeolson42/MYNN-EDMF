@@ -196,17 +196,16 @@
        rqnwfablten,rqnifablten,rqnbcablten !,ro3blten
  real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(in)  ::    &
        pattern_spp_pbl
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
+ real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(inout) ::  &
        qc_bl, qi_bl, cldfra_bl
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
-       edmf_a,edmf_w,edmf_qt,                                                     &
-       edmf_thl,edmf_ent,edmf_qc,                                                 &
-       sub_thl3d,sub_sqv3d,det_thl3d,det_sqv3d
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
-       dqke,qWT,qSHEAR,qBUOY,qDISS
  real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(inout) ::  &
        qv,qc,qi,qs,qnc,qni,qnwfa,qnifa,qnbca!,o3
-
+ real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
+       dqke,qWT,qSHEAR,qBUOY,qDISS
+ real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
+       edmf_a,edmf_w,edmf_qt,edmf_thl,edmf_ent,edmf_qc,                           &
+       sub_thl3d,sub_sqv3d,det_thl3d,det_sqv3d
+ 
 !(non-optional) 1D arrays
  real(kind_phys), dimension(kts:kte) ::                                           &
        u1,v1,w1,th1,tk1,rho1,ex1,p1,dz1,rthraten1
@@ -215,7 +214,7 @@
        sub_thl1,sub_sqv1,det_thl1,det_sqv1
  real(kind_phys), dimension(kts:kte) ::                                           &
        qc_bl1, qi_bl1, cldfra_bl1, pattern_spp_pbl1
- real(kind_phys), dimension(kts:kte) ::                                           &
+ real(kind_phys), dimension(:), allocatable ::                                    &
        dqke1,qWT1,qSHEAR1,qBUOY1,qDISS1
  real(kind_phys), dimension(kts:kte) ::                                           &
        qke1, qke_adv1, el1, sh1, sm1, km1, kh1, tsq1, qsq1, cov1
@@ -279,68 +278,70 @@
  itf=MIN0(ITE,IDE-1)
 
  !For now, initialized bogus array
- ozone            =0.0
- rO3blten         =0.0
- kzero            =0.0
+ ozone            =0.0_kind_phys
+ rO3blten         =0.0_kind_phys
+ kzero            =0.0_kind_phys
  !initialize subgrid clouds:
- qc_bl1           =0.0
- qi_bl1           =0.0
- cldfra_bl1       =0.0
+ qc_bl1           =0.0_kind_phys
+ qi_bl1           =0.0_kind_phys
+ cldfra_bl1       =0.0_kind_phys
  !spp
- pattern_spp_pbl1 =0.0
+ pattern_spp_pbl1 =0.0_kind_phys
  !turbulence properties
- qke1             =0.0
- qke_adv1         =0.0
- el1              =0.0
- sh1              =0.0
- sm1              =0.0
- kh1              =0.0
- km1              =0.0
- tsq1             =0.0
- qsq1             =0.0
- cov1             =0.0
- !tke budget
- dqke1            =0.0
- qWT1             =0.0
- qSHEAR1          =0.0
- qBUOY1           =0.0
- qDISS1           =0.0
- !mass-flux arrays
- edmf_a1          =0.0
- edmf_w1          =0.0
- edmf_qt1         =0.0
- edmf_thl1        =0.0
- edmf_ent1        =0.0
- edmf_qc1         =0.0
- sub_thl1         =0.0
- sub_sqv1         =0.0
- det_thl1         =0.0
- det_sqv1         =0.0
+ qke1             =0.0_kind_phys
+ qke_adv1         =0.0_kind_phys
+ el1              =0.0_kind_phys
+ sh1              =0.0_kind_phys
+ sm1              =0.0_kind_phys
+ kh1              =0.0_kind_phys
+ km1              =0.0_kind_phys
+ tsq1             =0.0_kind_phys
+ qsq1             =0.0_kind_phys
+ cov1             =0.0_kind_phys
+ !tke budget (optional arrays)
+ if (tke_budget .eq. 1) then
+    allocate(dqke1(kts:kte),    source=0.0_kind_phys)
+    allocate(qwt1(kts:kte),     source=0.0_kind_phys)
+    allocate(qshear1(kts:kte),  source=0.0_kind_phys)
+    allocate(qbuoy1(kts:kte),   source=0.0_kind_phys)
+    allocate(qdiss1(kts:kte),   source=0.0_kind_phys)
+ endif
+ !1d mass-flux arrays - most are used in the scheme, so no toptional
+ edmf_a1          =0.0_kind_phys
+ edmf_w1          =0.0_kind_phys
+ edmf_qt1         =0.0_kind_phys
+ edmf_thl1        =0.0_kind_phys
+ edmf_ent1        =0.0_kind_phys
+ edmf_qc1         =0.0_kind_phys
+ sub_thl1         =0.0_kind_phys
+ sub_sqv1         =0.0_kind_phys
+ det_thl1         =0.0_kind_phys
+ det_sqv1         =0.0_kind_phys
  !moist species
- qv1              =0.0
- qc1              =0.0
- qi1              =0.0
- qs1              =0.0
- qnc1             =0.0
- qni1             =0.0
- qnwfa1           =0.0
- qnifa1           =0.0
- qnbca1           =0.0
- ozone1           =0.0
+ qv1              =0.0_kind_phys
+ qc1              =0.0_kind_phys
+ qi1              =0.0_kind_phys
+ qs1              =0.0_kind_phys
+ qnc1             =0.0_kind_phys
+ qni1             =0.0_kind_phys
+ qnwfa1           =0.0_kind_phys
+ qnifa1           =0.0_kind_phys
+ qnbca1           =0.0_kind_phys
+ ozone1           =0.0_kind_phys
  !1d (non-optional) tendencies
- du1              =0.0
- dv1              =0.0
- dth1             =0.0
- dqv1             =0.0
- dqc1             =0.0
- dqi1             =0.0
- dqs1             =0.0
- dqni1            =0.0
- dqnc1            =0.0
- dqnwfa1          =0.0
- dqnifa1          =0.0
- dqnbca1          =0.0
- dozone1          =0.0
+ du1              =0.0_kind_phys
+ dv1              =0.0_kind_phys
+ dth1             =0.0_kind_phys
+ dqv1             =0.0_kind_phys
+ dqc1             =0.0_kind_phys
+ dqi1             =0.0_kind_phys
+ dqs1             =0.0_kind_phys
+ dqni1            =0.0_kind_phys
+ dqnc1            =0.0_kind_phys
+ dqnwfa1          =0.0_kind_phys
+ dqnifa1          =0.0_kind_phys
+ dqnbca1          =0.0_kind_phys
+ dozone1          =0.0_kind_phys
 
  !---------------------------------------
  !Begin looping in the i- and j-direction
@@ -728,6 +729,14 @@
    enddo  !end j-loop
    enddo  !end i-loop
 
+   if (tke_budget .eq. 1) then
+      deallocate(dqke1     )
+      deallocate(qwt1      )
+      deallocate(qshear1   )
+      deallocate(qbuoy1    )
+      deallocate(qdiss1    )
+   endif
+ 
    if (debug) then
       print*,"In mynnedmf_driver, at end"
    endif

@@ -97,7 +97,7 @@ module module_bl_mynnedmf_wrf_tests
                 hfx(:,:), qfx(:,:), wspd(:,:), znt(:,:), uoce(:,:), voce(:,:)
         ! output 2D arrays
         real, allocatable :: excess_h(:,:), excess_q(:,:), maxmf(:,:),maxwidth(:,:),         &
-                pblh(:,:),qBUOY(:,:),qDISS(:,:),ztop_plume(:,:)
+                pblh(:,:),ztop_plume(:,:)
         integer, allocatable :: kpbl(:,:)
         ! 3D arrays
         !real, allocatable, intent(inout) :: u(:,:,:), 
@@ -112,7 +112,7 @@ module module_bl_mynnedmf_wrf_tests
         real, allocatable :: qke(:,:,:), qke_adv(:,:,:), el_pbl(:,:,:), sh3d(:,:,:),        &
                 sm3d(:,:,:), tsq(:,:,:), qsq(:,:,:), cov(:,:,:)
         real, allocatable :: qnbca(:,:,:),qnc(:,:,:),qni(:,:,:),qnifa(:,:,:),qnwfa(:,:,:),  & 
-                qs(:,:,:),qshear(:,:,:),qwt(:,:,:)
+                qs(:,:,:),qshear(:,:,:),qwt(:,:,:),qBUOY(:,:,:),qDISS(:,:,:)
         real, allocatable :: rqcblten(:,:,:),rqiblten(:,:,:),rqnbcablten(:,:,:),            &
                 rqniblten(:,:,:), rqnifablten(:,:,:), rqnwfablten(:,:,:), rqsblten(:,:,:),  &
                 rqvblten(:,:,:), sub_sqv3d(:,:,:), rqncblten(:,:,:), sub_thl3d(:,:,:)
@@ -124,7 +124,6 @@ module module_bl_mynnedmf_wrf_tests
 
         ! Open NetCDF file
         print*,'Case: ',trim(case)
-
         ! Save current halting mode
         call ieee_get_halting_mode(ieee_all, halt_flags)
         
@@ -194,12 +193,12 @@ module module_bl_mynnedmf_wrf_tests
         allocate(maxmf(ims:ime, jms:jme))
         allocate(maxwidth(ims:ime, jms:jme))
         allocate(pblh(ims:ime, jms:jme))
-        allocate(qBUOY(ims:ime, jms:jme))
-        allocate(qDISS(ims:ime, jms:jme))
         allocate(ztop_plume(ims:ime, jms:jme))
         allocate(excess_h(ims:ime, jms:jme))
         allocate(excess_q(ims:ime, jms:jme))
         ! Allocate 3D arrays
+        allocate(qBUOY(ims:ime, kms:kme, jms:jme))
+        allocate(qDISS(ims:ime, kms:kme, jms:jme))
         allocate(u(ims:ime, kms:kme, jms:jme))
         allocate(v(ims:ime, kms:kme, jms:jme))
         allocate(w(ims:ime, kms:kme, jms:jme))
@@ -453,7 +452,7 @@ module module_bl_mynnedmf_wrf_tests
                 
         ! Deallocate 2D arrays
         deallocate(xland,ps,ts,qsfc,ust,ch,hfx,qfx,wspd,znt,uoce,voce,        &
-          kpbl,maxmf,maxwidth,pblh,qBUOY,qDISS,ztop_plume,excess_h,excess_q)
+          kpbl,maxmf,maxwidth,pblh,ztop_plume,excess_h,excess_q)
         ! deallocate 3D arrays
         deallocate(u,v,w,th,t3d,p,exner,rho,qv,qc,qi)        
         deallocate(dz,exch_h,exch_m)
@@ -462,7 +461,7 @@ module module_bl_mynnedmf_wrf_tests
         deallocate(cov,det_thl3d,det_sqv3d,dqke,edmf_a,edmf_ent,edmf_qc,      &
           edmf_qt,edmf_thl,edmf_w)        
         
-        deallocate(qnc,qni,qnwfa,qnifa,qs,qshear) 
+        deallocate(qnc,qni,qnwfa,qnifa,qs,qshear,qBUOY,qDISS) 
         deallocate(qwt,qke,qke_adv,tsq,qsq,el_pbl,sh3d,sm3d,qc_bl,qi_bl,      &
           cldfra_bl,sub_thl3d,sub_sqv3d,RQVBLTEN,RQCBLTEN,RQIBLTEN)
         end subroutine wrf_test

@@ -1,69 +1,81 @@
 !> \file module_bl_mynnedmf_driver.F90
-!!  This serves as the interface between the WRF PBL driver and the MYNN 
+!!  This serves as the interface between the WRF PBL driver and the MYNN-EDMF
 !!  eddy-diffusivity mass-flux scheme in module_bl_mynnedmf.F90. 
 
 !>\ingroup gsd_mynn_edmf
 !> The following references best describe the code within
-!!    Olson et al. (2019, NOAA Technical Memorandum)
+!!    Olson et al. (2026, NOAA Technical Memorandum)
 !!    Nakanishi and Niino (2009) \cite NAKANISHI_2009
+!=================================================================================================================
  module module_bl_mynnedmf_driver
 
- use module_bl_mynnedmf_common
+ use module_bl_mynnedmf_common,only: kind_phys,xlvcp,xlscp
+ use module_bl_mynnedmf,only: mynnedmf
 
+ implicit none
+ real(kind_phys),parameter::zero=0.0
+ real(kind_phys),parameter::one =1.0
+ 
+ private
+ public:: mynnedmf_driver
+ public:: mynnedmf_init
+ public:: mynnedmf_finalize
+ 
  contains
 
+!=================================================================================================================
 !> \section arg_table_mynnedmf_init Argument Table
 !! \htmlinclude mynnedmf_wrapper_init.html
 !!
  subroutine mynnedmf_init (                        &
-   &  RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,RQCBLTEN,  &
-   &  RQIBLTEN,QKE,                                &
+   &  rublten,rvblten,rthblten,rqvblten,rqcblten,  &
+   &  rqiblten,qke,                                &
    &  restart,allowed_to_read,                     &
-   &  P_QC,P_QI,PARAM_FIRST_SCALAR,                &
-   &  IDS,IDE,JDS,JDE,KDS,KDE,                     &
-   &  IMS,IME,JMS,JME,KMS,KME,                     &
-   &  ITS,ITE,JTS,JTE,KTS,KTE                      )
+   &  p_qc,p_qi,param_first_scalar,                &
+   &  ids,ide,jds,jde,kds,kde,                     &
+   &  ims,ime,jms,jme,kms,kme,                     &
+   &  its,ite,jts,jte,kts,kte                      )
 
    implicit none
         
-   LOGICAL,INTENT(IN) :: ALLOWED_TO_READ,RESTART
+   logical,intent(in) :: allowed_to_read,restart
 
-   INTEGER,INTENT(IN) :: IDS,IDE,JDS,JDE,KDS,KDE,  &
-        &                IMS,IME,JMS,JME,KMS,KME,  &
-        &                ITS,ITE,JTS,JTE,KTS,KTE
+   integer,intent(in) :: ids,ide,jds,jde,kds,kde,  &
+        &                ims,ime,jms,jme,kms,kme,  &
+        &                its,ite,jts,jte,kts,kte
 
-   REAL,DIMENSION(IMS:IME,KMS:KME,JMS:JME),INTENT(INOUT) :: &
-        &RUBLTEN,RVBLTEN,RTHBLTEN,RQVBLTEN,                 &
-        &RQCBLTEN,RQIBLTEN,QKE
+   real,dimension(ims:ime,kms:kme,jms:jme),intent(inout) :: &
+        &rublten,rvblten,rthblten,rqvblten,                 &
+        &rqcblten,rqiblten,qke
 
-   INTEGER,  intent(in) :: P_QC,P_QI,PARAM_FIRST_SCALAR
+   integer,  intent(in) :: p_qc,p_qi,param_first_scalar
 
-   INTEGER :: I,J,K,ITF,JTF,KTF
+   integer :: i,j,k,itf,jtf,ktf
 
-   JTF=MIN0(JTE,JDE-1)
-   KTF=MIN0(KTE,KDE-1)
-   ITF=MIN0(ITE,IDE-1)
+   jtf=min0(jte,jde-1)
+   ktf=min0(kte,kde-1)
+   itf=min0(ite,ide-1)
 
-   IF (.NOT.RESTART) THEN
-      DO J=JTS,JTF
-      DO K=KTS,KTF
-      DO I=ITS,ITF
-         RUBLTEN(i,k,j)=0.
-         RVBLTEN(i,k,j)=0.
-         RTHBLTEN(i,k,j)=0.
-         RQVBLTEN(i,k,j)=0.
-         if( p_qc >= param_first_scalar ) RQCBLTEN(i,k,j)=0.
-         if( p_qi >= param_first_scalar ) RQIBLTEN(i,k,j)=0.
-      ENDDO
-      ENDDO
-      ENDDO
-   ENDIF
+   if (.not.restart) then
+      do j=jts,jtf
+      do k=kts,ktf
+      do i=its,itf
+         rublten(i,k,j)=zero
+         rvblten(i,k,j)=zero
+         rthblten(i,k,j)=zero
+         rqvblten(i,k,j)=zero
+         if( p_qc >= param_first_scalar ) rqcblten(i,k,j)=zero
+         if( p_qi >= param_first_scalar ) rqiblten(i,k,j)=zero
+      enddo
+      enddo
+      enddo
+   endif
 
  end subroutine mynnedmf_init
-
+!=================================================================================================================
  subroutine mynnedmf_finalize ()
  end subroutine mynnedmf_finalize
-
+!=================================================================================================================
 ! \brief This scheme (1) performs pre-mynnedmf work, (2) runs the mynnedmf, and (3) performs post-mynnedmf work
 !> \section arg_table_mynnedmf_driver Argument Table
 !! \htmlinclude mynnedmf_driver.html
@@ -113,53 +125,8 @@
 #endif
                )
 
-
- use module_bl_mynnedmf, only: mynnedmf
-
-!------------------------------------------------------------------- 
- implicit none
-!------------------------------------------------------------------- 
-
-!smoke/chem: disclaimer: all smoke-related variables are still
-!considered under development in CCPP. Until that work is
-!completed, these flags/arrays must be kept hard-coded as is.
-#if (WRF_CHEM == 1)
- logical, intent(in) :: mix_chem
- integer, intent(in) :: nchem, ndvel, kdvel, num_vert_mix
- logical, parameter ::                                  &
-         enh_mix    =.false.
-#else
- logical, parameter ::                                  &
-         mix_chem   =.false.,                           &
-         enh_mix    =.false.
- integer, parameter :: nchem=2, ndvel=2, kdvel=1,       &
-          num_vert_mix = 1
-#endif
-
-! NAMELIST OPTIONS (INPUT):
- logical, intent(in) ::                                 &
-         bl_mynn_tkeadvect,                             &
-         cycling
- integer, intent(in) ::                                 &
-         bl_mynn_cloudpdf,                              &
-         bl_mynn_mixlength,                             &
-         icloud_bl,                                     &
-         bl_mynn_edmf,                                  &
-         bl_mynn_edmf_dd,                               &
-         bl_mynn_edmf_mom,                              &
-         bl_mynn_edmf_tke,                              &
-         bl_mynn_cloudmix,                              &
-         bl_mynn_mixqt,                                 &
-         bl_mynn_output,                                &
-         bl_mynn_mixscalars,                            &
-         bl_mynn_mixaerosols,                           &
-         bl_mynn_mixnumcon,                             &
-         bl_mynn_ess,                                   &
-         spp_pbl,                                       &
-         tke_budget
- real(kind_phys), intent(in) ::                         &
-         bl_mynn_closure
-
+!=================================================================================================================
+!--- input arguments:
  logical,intent(in):: &
     flag_qc,               &     ! if true,the physics package includes the cloud liquid water mixing ratio.
     flag_qi,               &     ! if true,the physics package includes the cloud ice mixing ratio.
@@ -170,42 +137,163 @@
     flag_qnwfa,            &     ! if true,the physics package includes the "water-friendly" aerosol number concentration.
     flag_qnbca                   ! if true,the physics package includes the number concentration of black carbon.
  logical, parameter :: flag_ozone = .false.
-
-!MYNN-1D
- REAL(kind_phys),    intent(in) :: delt, dxc
- LOGICAL, intent(in) :: restart
- INTEGER :: i, j, k, itf, jtf, n
- INTEGER, intent(in) :: initflag,                      &
-            IDS,IDE,JDS,JDE,KDS,KDE,                   &
-            IMS,IME,JMS,JME,KMS,KME,                   &
-            ITS,ITE,JTS,JTE,KTS,KTE
-
-!MYNN-3D
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), intent(in) ::               &
-       u,v,w,t3d,th,rho,exner,p,dz,rthraten
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), intent(inout) ::            &
-       rublten,rvblten,rthblten
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), intent(out) ::              &
-       qke, qke_adv, el_pbl, sh3d, sm3d, tsq, qsq, cov
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), intent(inout) ::            &
-       exch_h, exch_m
-
-!optional 3D arrays
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(inout) ::  &
-       rqvblten,rqcblten,rqiblten,rqsblten,rqncblten,rqniblten,                   &
-       rqnwfablten,rqnifablten,rqnbcablten !,ro3blten
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(in)  ::    &
-       pattern_spp_pbl
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(inout) ::  &
-       qc_bl, qi_bl, cldfra_bl
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(inout) ::  &
-       qv,qc,qi,qs,qnc,qni,qnwfa,qnifa,qnbca!,o3
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
-       dqke,qWT,qSHEAR,qBUOY,qDISS
- real(kind_phys), dimension(ims:ime,kms:kme,jms:jme), optional, intent(out) ::    &
-       edmf_a,edmf_w,edmf_qt,edmf_thl,edmf_ent,edmf_qc,                           &
-       sub_thl3d,sub_sqv3d,det_thl3d,det_sqv3d
+ logical, intent(in) ::    &
+    bl_mynn_tkeadvect,     &
+    cycling,               &
+    restart
  
+ integer,intent(in):: &
+    ids,ide,jds,jde,kds,kde, &
+    ims,ime,jms,jme,kms,kme, &
+    its,ite,jts,jte,kts,kte
+
+ integer, intent(in) ::    &
+    bl_mynn_cloudpdf,      &
+    bl_mynn_mixlength,     &
+    bl_mynn_edmf,          &
+    bl_mynn_edmf_dd,       &
+    bl_mynn_edmf_mom,      &
+    bl_mynn_edmf_tke,      &
+    bl_mynn_cloudmix,      &
+    bl_mynn_mixqt,         &
+    bl_mynn_output,        &
+    bl_mynn_mixscalars,    &
+    bl_mynn_mixaerosols,   &
+    bl_mynn_mixnumcon,     &
+    bl_mynn_ess,           &
+    tke_budget
+
+ integer,intent(in):: &
+    initflag,              &!
+    icloud_bl,             &!
+    spp_pbl
+ 
+ real(kind_phys),intent(in):: &
+    bl_mynn_closure
+
+ real(kind_phys), intent(in) :: delt, dxc
+
+!required 2D input
+ real(kind=kind_phys),intent(in),dimension(ims:ime,jms:jme):: &
+    !dx,                 &!
+    xland,              &!
+    ps,                 &!
+    ts,                 &!
+    qsfc,               &!
+    ust,                &!
+    ch,                 &!
+    hfx,                &!
+    qfx,                &!
+    wspd,               &!
+    uoce,               &!
+    voce,               &!
+    znt                  !
+
+!required 3D input
+ real(kind=kind_phys),intent(in),dimension(ims:ime,kms:kme,jms:jme):: &
+    dz,      &!
+    u,       &!
+    w,       &!
+    v,       &!
+    th,      &!
+    t3d,     &!
+    p,       &!
+    exner,   &!
+    rho,     &!
+    rthraten  !
+
+!optional 3D input
+ real(kind=kind_phys),intent(in),dimension(ims:ime,kms:kme,jms:jme),optional:: &
+    qv,      &!
+    qc,      &!
+    qi,      &!
+    qs,      &!
+!    o3,      &!
+    qnc,      &!
+    qni,      &!
+    qnifa,    &!
+    qnwfa,    &!
+    qnbca
+
+ real(kind=kind_phys),intent(in),dimension(ims:ime,kms:kme,jms:jme),optional:: &
+    pattern_spp_pbl   !
+
+!--- inout arguments:
+ integer,intent(inout),dimension(ims:ime,jms:jme):: &
+    kpbl
+
+ real(kind=kind_phys),intent(inout),dimension(ims:ime,jms:jme):: &
+    pblh          !
+
+ real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme),optional:: &
+    cldfra_bl,   &!
+    qc_bl,       &!
+    qi_bl         ! 
+
+ real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme):: &
+    el_pbl,      &!
+    qke,         &!
+    qke_adv,     &!
+    cov,         &!
+    qsq,         &!
+    tsq,         &!
+    sh3d,        &!
+    sm3d
+
+ real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme):: &
+    rublten,     &!
+    rvblten,     &!
+    rthblten
+
+ real(kind=kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme),optional:: &
+    rqvblten,    &!
+    rqcblten,    &!
+    rqiblten,    &!
+    rqsblten,    &!
+!    rqo3blten,   &!
+    rqncblten,   &!
+    rqniblten,   &!
+    rqnifablten, &!
+    rqnwfablten, &!
+    rqnbcablten   !
+
+!--- output arguments (but kept local, since WRF doesn't use them):
+ character :: &!,intent(out):: &
+    errmsg        ! output error message (-).
+
+ integer :: &!,intent(out):: &
+    errflg        ! output error flag (-).
+
+ real(kind=kind_phys),intent(out),dimension(ims:ime,jms:jme):: &
+    maxwidth,    &!
+    maxmf,       &!
+    ztop_plume,  &!
+    excess_h,    &!
+    excess_q
+
+ real(kind=kind_phys),intent(out),dimension(ims:ime,kms:kme,jms:jme):: &
+    exch_h,      &!
+    exch_m        !
+
+ real(kind=kind_phys),intent(out),dimension(ims:ime,kms:kme,jms:jme),optional:: &
+    dqke,        &!
+    qwt,         &!
+    qshear,      &!
+    qbuoy,       &!
+    qdiss         !
+ 
+ real(kind=kind_phys),intent(out),dimension(ims:ime,kms:kme,jms:jme),optional:: &
+    edmf_a,      &!
+    edmf_w,      &!
+    edmf_qt,     &!
+    edmf_thl,    &!
+    edmf_ent,    &!
+    edmf_qc,     &!
+    sub_thl3d,   &!
+    sub_sqv3d,   &!
+    det_thl3d,   &!
+    det_sqv3d     !
+
 !(non-optional) 1D arrays
  real(kind_phys), dimension(kts:kte) ::                                           &
        u1,v1,w1,th1,tk1,rho1,ex1,p1,dz1,rthraten1
@@ -214,8 +302,6 @@
        sub_thl1,sub_sqv1,det_thl1,det_sqv1
  real(kind_phys), dimension(kts:kte) ::                                           &
        qc_bl1, qi_bl1, cldfra_bl1, pattern_spp_pbl1
- real(kind_phys), dimension(:), allocatable ::                                    &
-       dqke1,qWT1,qSHEAR1,qBUOY1,qDISS1
  real(kind_phys), dimension(kts:kte) ::                                           &
        qke1, qke_adv1, el1, sh1, sm1, km1, kh1, tsq1, qsq1, cov1
  real(kind_phys), dimension(kts:kte) ::                                           &
@@ -224,46 +310,46 @@
        du1,dv1,dth1,dqv1,dqc1,dqi1,dqs1,                                          &
        dqni1,dqnc1,dqnwfa1,dqnifa1,dqnbca1,dozone1
 
+ real(kind_phys), dimension(:), allocatable ::                                    &
+      dqke1,qwt1,qshear1,qbuoy1,qdiss1
+ 
 !smoke/chem arrays - no if-defs in module_bl_mynnedmf.F90, so must define arrays
+!considered under development in CCPP. Until that work is
+!completed, these flags/arrays must be kept hard-coded as is.
 #if (WRF_CHEM == 1)
+ logical, intent(in) :: mix_chem
+ integer, intent(in) :: nchem, ndvel, kdvel, num_vert_mix
+ logical, parameter  :: enh_mix    =.false.
  real(kind_phys), dimension(ims:ime,kms:kme,jms:jme,nchem), intent(inout) :: chem3d
  real(kind_phys), dimension(ims:ime,kdvel,jms:jme, ndvel),  intent(in)    :: vd3d
  real(kind_phys), dimension(kms:kme,nchem)  :: chem, settle1
  real(kind_phys), dimension(ndvel)          :: vd
  real(kind_phys), dimension(ims:ime,jms:jme):: frp_mean, emis_ant_no
 #else
+ logical, parameter :: mix_chem   =.false.
+ logical, parameter :: enh_mix    =.false.
+ integer, parameter :: nchem=2, ndvel=2, kdvel=1, num_vert_mix = 1
  real(kind_phys), dimension(kms:kme,nchem)  :: chem, settle1
  real(kind_phys), dimension(ndvel)          :: vd
  real(kind_phys), dimension(ims:ime,jms:jme):: frp_mean, emis_ant_no
 #endif
+
 !Generic scalar array support (not yet connected to WRF, but any new scalars that need to be mixed
 !(locally and nonlocally) will need to come through this variables with bl_mynn_mixscalars=1.
  integer, parameter :: nscalars=1
  real(kind=kind_phys),dimension(kts:kte,nscalars):: scalars 
 
-!MYNN-2D
- real(kind_phys), dimension(ims:ime,jms:jme), intent(in) ::                       &
-       xland,ts,qsfc,ps,ch,hfx,qfx,ust,wspd,znt,                                  &
-       uoce,voce
- real(kind_phys), dimension(ims:ime,jms:jme), optional, intent(out) ::            &
-       maxwidth,maxmf,ztop_plume,excess_h,excess_q
- real(kind_phys), dimension(ims:ime,jms:jme), intent(out) ::                      &
-       pblh
- integer, dimension(ims:ime,jms:jme), intent(out) ::                              &
-       kpbl
-
 !Local
+ integer :: i, j, k, itf, jtf, n
  real(kind_phys), dimension(kts:kte)                 :: delp,sqv1,sqc1,sqi1,sqs1,kzero
  logical, parameter                                  :: debug = .false.
  real(kind_phys), dimension(its:ite,kts:kte,jts:jte) :: ozone,rO3blten
+!single points from 2d arrays
  real(kind_phys):: xland1,ts1,qsfc1,ps1,ch1,hfx1,qfx1,ust1,wspd1,                 &
        znt1,uoce1,voce1,pblh1,maxwidth1,maxmf1,ztop_plume1,                       &
        frp1,emis1,excess_h1,excess_q1
  integer   :: kpbl1
       
-!ccpp-requirements, but kept local, since WRF doesn't use them
- character :: errmsg   ! output error message (-).
- integer   :: errflg   ! output error flag (-).
 
  if (debug) then
     write(0,*)"=============================================="
@@ -278,70 +364,70 @@
  itf=MIN0(ITE,IDE-1)
 
  !For now, initialized bogus array
- ozone            =0.0_kind_phys
- rO3blten         =0.0_kind_phys
- kzero            =0.0_kind_phys
+ ozone            =zero
+ rO3blten         =zero
+ kzero            =zero
  !initialize subgrid clouds:
- qc_bl1           =0.0_kind_phys
- qi_bl1           =0.0_kind_phys
- cldfra_bl1       =0.0_kind_phys
+ qc_bl1           =zero
+ qi_bl1           =zero
+ cldfra_bl1       =zero
  !spp
- pattern_spp_pbl1 =0.0_kind_phys
+ pattern_spp_pbl1 =zero
  !turbulence properties
- qke1             =0.0_kind_phys
- qke_adv1         =0.0_kind_phys
- el1              =0.0_kind_phys
- sh1              =0.0_kind_phys
- sm1              =0.0_kind_phys
- kh1              =0.0_kind_phys
- km1              =0.0_kind_phys
- tsq1             =0.0_kind_phys
- qsq1             =0.0_kind_phys
- cov1             =0.0_kind_phys
+ qke1             =zero
+ qke_adv1         =zero
+ el1              =zero
+ sh1              =zero
+ sm1              =zero
+ kh1              =zero
+ km1              =zero
+ tsq1             =zero
+ qsq1             =zero
+ cov1             =zero
  !tke budget (optional arrays)
  if (tke_budget .eq. 1) then
-    allocate(dqke1(kts:kte),    source=0.0_kind_phys)
-    allocate(qwt1(kts:kte),     source=0.0_kind_phys)
-    allocate(qshear1(kts:kte),  source=0.0_kind_phys)
-    allocate(qbuoy1(kts:kte),   source=0.0_kind_phys)
-    allocate(qdiss1(kts:kte),   source=0.0_kind_phys)
+    allocate(dqke1(kts:kte),    source=zero)
+    allocate(qwt1(kts:kte),     source=zero)
+    allocate(qshear1(kts:kte),  source=zero)
+    allocate(qbuoy1(kts:kte),   source=zero)
+    allocate(qdiss1(kts:kte),   source=zero)
  endif
  !1d mass-flux arrays - most are used in the scheme, so no toptional
- edmf_a1          =0.0_kind_phys
- edmf_w1          =0.0_kind_phys
- edmf_qt1         =0.0_kind_phys
- edmf_thl1        =0.0_kind_phys
- edmf_ent1        =0.0_kind_phys
- edmf_qc1         =0.0_kind_phys
- sub_thl1         =0.0_kind_phys
- sub_sqv1         =0.0_kind_phys
- det_thl1         =0.0_kind_phys
- det_sqv1         =0.0_kind_phys
+ edmf_a1          =zero
+ edmf_w1          =zero
+ edmf_qt1         =zero
+ edmf_thl1        =zero
+ edmf_ent1        =zero
+ edmf_qc1         =zero
+ sub_thl1         =zero
+ sub_sqv1         =zero
+ det_thl1         =zero
+ det_sqv1         =zero
  !moist species
- qv1              =0.0_kind_phys
- qc1              =0.0_kind_phys
- qi1              =0.0_kind_phys
- qs1              =0.0_kind_phys
- qnc1             =0.0_kind_phys
- qni1             =0.0_kind_phys
- qnwfa1           =0.0_kind_phys
- qnifa1           =0.0_kind_phys
- qnbca1           =0.0_kind_phys
- ozone1           =0.0_kind_phys
+ qv1              =zero
+ qc1              =zero
+ qi1              =zero
+ qs1              =zero
+ qnc1             =zero
+ qni1             =zero
+ qnwfa1           =zero
+ qnifa1           =zero
+ qnbca1           =zero
+ ozone1           =zero
  !1d (non-optional) tendencies
- du1              =0.0_kind_phys
- dv1              =0.0_kind_phys
- dth1             =0.0_kind_phys
- dqv1             =0.0_kind_phys
- dqc1             =0.0_kind_phys
- dqi1             =0.0_kind_phys
- dqs1             =0.0_kind_phys
- dqni1            =0.0_kind_phys
- dqnc1            =0.0_kind_phys
- dqnwfa1          =0.0_kind_phys
- dqnifa1          =0.0_kind_phys
- dqnbca1          =0.0_kind_phys
- dozone1          =0.0_kind_phys
+ du1              =zero
+ dv1              =zero
+ dth1             =zero
+ dqv1             =zero
+ dqc1             =zero
+ dqi1             =zero
+ dqs1             =zero
+ dqni1            =zero
+ dqnc1            =zero
+ dqnwfa1          =zero
+ dqnifa1          =zero
+ dqnbca1          =zero
+ dozone1          =zero
 
  !---------------------------------------
  !Begin looping in the i- and j-direction
@@ -497,7 +583,7 @@
          do n=1,nchem
          do k=kts,kte
             chem(k,n)=chem3d(i,k,j,n)
-            settle1(k,n)=0.0
+            settle1(k,n)=zero
          enddo
          enddo
 
@@ -506,20 +592,20 @@
             vd(n) = vd3d(i,1,j,n)
          enddo
       endif
-      frp_mean    = 0.0
-      emis_ant_no = 0.0
+      frp_mean    = zero
+      emis_ant_no = zero
 #else
-      chem        = 0.0
-      settle1     = 0.0
-      vd          = 0.0
-      frp_mean    = 0.0
-      emis_ant_no = 0.0
+      chem        = zero
+      settle1     = zero
+      vd          = zero
+      frp_mean    = zero
+      emis_ant_no = zero
 #endif
       frp1        = frp_mean(i,j)
       emis1       = emis_ant_no(i,j)
 
       !generic scalar array support
-      scalars     = 0.0
+      scalars     = zero
       
       !find/fix negative mixing ratios
 !      call moisture_check2(kte, delt,                 &
@@ -632,53 +718,53 @@
 
       !- Update 3d tendencies (already converted spec hum back to mixing ratio):
       do k=kts,kte
-         RUBLTEN(i,k,j)  = du1(k)
-         RVBLTEN(i,k,j)  = dv1(k)
-         RTHBLTEN(i,k,j) = dth1(k)
+         rublten(i,k,j)  = du1(k)
+         rvblten(i,k,j)  = dv1(k)
+         rthblten(i,k,j) = dth1(k)
       enddo
-      if (present(RQVBLTEN)) then
+      if (present(rqvblten)) then
          do k=kts,kte
-            RQVBLTEN(i,k,j) = dqv1(k)
+            rqvblten(i,k,j) = dqv1(k)
          enddo
       endif
-      if (present(RQCBLTEN)) then
+      if (present(rqcblten)) then
          do k=kts,kte
-            RQCBLTEN(i,k,j) = dqc1(k)
+            rqcblten(i,k,j) = dqc1(k)
          enddo
       endif
-      if (present(RQIBLTEN)) then
+      if (present(rqiblten)) then
          do k=kts,kte
-            RQIBLTEN(i,k,j) = dqi1(k)
+            rqiblten(i,k,j) = dqi1(k)
          enddo
       endif
-      if (present(RQSBLTEN)) then !.false.) then !as of now, there is no RQSBLTEN in WRF
+      if (present(rqsblten)) then !.false.) then !as of now, there is no rqsblten in wrf
         do k=kts,kte
-           RQSBLTEN(i,k,j) = dqs1(k)
+           rqsblten(i,k,j) = dqs1(k)
         enddo
       endif
-      if (present(RQNCBLTEN)) then
+      if (present(rqncblten)) then
          do k=kts,kte
-            RQNCBLTEN(i,k,j) = dqnc1(k)
+            rqncblten(i,k,j) = dqnc1(k)
          enddo
       endif
-      if (present(RQNIBLTEN)) then
+      if (present(rqniblten)) then
          do k=kts,kte
-            RQNIBLTEN(i,k,j) = dqni1(k)
+            rqniblten(i,k,j) = dqni1(k)
          enddo
       endif
-      if (present(RQNWFABLTEN)) then
+      if (present(rqnwfablten)) then
          do k=kts,kte
-            RQNWFABLTEN(i,k,j) = dqnwfa1(k)
+            rqnwfablten(i,k,j) = dqnwfa1(k)
          enddo
       endif
-      if (present(RQNIFABLTEN)) then
+      if (present(rqnifablten)) then
          do k=kts,kte
-            RQNIFABLTEN(i,k,j) = dqnifa1(k)
+            rqnifablten(i,k,j) = dqnifa1(k)
          enddo
       endif
-      if (present(RQNBCABLTEN)) then
+      if (present(rqnbcablten)) then
          do k=kts,kte
-            RQNBCABLTEN(i,k,j) = dqnbca1(k)
+            rqnbcablten(i,k,j) = dqnbca1(k)
          enddo
       endif
 
@@ -868,29 +954,29 @@ END SUBROUTINE moisture_check2
 
 !---  initialization:
  do k = kts,kte
-    sqc(k) = 0._kind_phys
-    sqi(k) = 0._kind_phys
+    sqc(k) = zero
+    sqi(k) = zero
  enddo
 
 !---  conversion from water vapor mixing ratio to specific humidity:
  do k = kts,kte
-    sqv(k) = qv(k)/(1.+qv(k))
+    sqv(k) = qv(k)/(one+qv(k))
  enddo
 
 !---  conversion from cloud liquid water,cloud ice,and snow mixing ratios to specific contents:
  if(f_qc) then
     do k = kts,kte
-       sqc(k) = qc(k)/(1.+qv(k))
+       sqc(k) = qc(k)/(one+qv(k))
     enddo
  endif
  if(f_qi) then
     do k = kts,kte
-       sqi(k) = qi(k)/(1.+qv(k))
+       sqi(k) = qi(k)/(one+qv(k))
     enddo
  endif
  if(f_qs) then
     do k = kts,kte
-       sqs(k) = qs(k)/(1.+qv(k))
+       sqs(k) = qs(k)/(one+qv(k))
     enddo
  endif
 
@@ -943,35 +1029,35 @@ END SUBROUTINE moisture_check2
 !-----------------------------------------------------------------------------------------------------------------
 !---  initialization:
  do k = kts,kte
-    sq = qv(k)/(1.+qv(k))      !conversion of qv at time-step n from mixing ratio to specific humidity.
+    sq = qv(k)/(one+qv(k))      !conversion of qv at time-step n from mixing ratio to specific humidity.
     sqv(k) = sq + dqv(k)*delt  !calculation of specific humidity at time-step n+1.
-    rq = sqv(k)/(1.-sqv(k))    !conversion of qv at time-step n+1 from specific humidity to mixing ratio.
+    rq = sqv(k)/(one-sqv(k))    !conversion of qv at time-step n+1 from specific humidity to mixing ratio.
     dqv(k) = (rq - qv(k))/delt !calculation of the tendency.
  enddo
 
  if (f_qc) then
     do k = kts,kte
-       sq = qc(k)/(1.+qv(k))
+       sq = qc(k)/(one+qv(k))
        sqc(k) = sq + dqc(k)*delt
-       rq  = sqc(k)*(1.+sqv(k))
+       rq  = sqc(k)/(one-sqv(k))
        dqc(k) = (rq - qc(k))/delt
     enddo
  endif
 
  if (f_qi) then
     do k = kts,kte
-       sq = qi(k)/(1.+qv(k))
+       sq = qi(k)/(one+qv(k))
        sqi(k) = sq + dqi(k)*delt
-       rq = sqi(k)*(1.+sqv(k))
+       rq = sqi(k)/(one-sqv(k))
        dqi(k) = (rq - qi(k))/delt
     enddo
  endif
 
  if (f_qs) then
     do k = kts,kte
-       sq = qs(k)/(1.+qv(k))
+       sq = qs(k)/(one+qv(k))
        sqs(k) = sq + dqs(k)*delt
-       rq = sqs(k)*(1.+sqv(k))
+       rq = sqs(k)/(one-sqv(k))
        dqs(k) = (rq - qs(k))/delt
     enddo
  endif

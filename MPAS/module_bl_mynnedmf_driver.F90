@@ -1,19 +1,82 @@
+!> \file module_bl_mynnedmf_driver.F90
+!!  This serves as the interface between the MPAS PBL driver and the MYNN-EDMF
+!!  eddy-diffusivity mass-flux scheme in module_bl_mynnedmf.F90.
+
+!>\ingroup gsd_mynn_edmf
+!> The following references best describe the code within
+!!    Olson et al. (2026, NOAA Technical Memorandum)
+!!    Nakanishi and Niino (2009) \cite NAKANISHI_2009
 !=================================================================================================================
  module module_bl_mynnedmf_driver
- use mpas_kind_types,only: kind_phys => RKIND
- use mpas_log
-
+  
+! use mpas_kind_types,only: kind_phys => RKIND
+ use module_bl_mynnedmf_common,only: kind_phys,xlvcp,xlscp
  use module_bl_mynnedmf,only: mynnedmf
 
  implicit none
+ real(kind_phys),parameter::zero=0.0
+ real(kind_phys),parameter::one =1.0
+ 
  private
  public:: mynnedmf_driver
-
+ public:: mynnedmf_init
+ public:: mynnedmf_finalize
 
  contains
 
-
 !=================================================================================================================
+!> \section arg_table_mynnedmf_init Argument Table                                                                                                                           
+!! \htmlinclude mynnedmf_wrapper_init.html                                                                                                                                   
+!!                                                                                                                                                                           
+ subroutine mynnedmf_init (                        &
+   &  rublten,rvblten,rthblten,rqvblten,rqcblten,  &
+   &  rqiblten,qke,                                &
+   &  restart,allowed_to_read,                     &
+   &  p_qc,p_qi,param_first_scalar,                &
+   &  ids,ide,jds,jde,kds,kde,                     &
+   &  ims,ime,jms,jme,kms,kme,                     &
+   &  its,ite,jts,jte,kts,kte                      )
+
+   implicit none
+
+   logical,intent(in) :: allowed_to_read,restart
+
+   integer,intent(in) :: ids,ide,jds,jde,kds,kde,  &                                                                                                                         
+        &                ims,ime,jms,jme,kms,kme,  &
+        &                its,ite,jts,jte,kts,kte
+
+   real,dimension(ims:ime,kms:kme,jms:jme),intent(inout) :: &                                                                                                                
+        &rublten,rvblten,rthblten,rqvblten,                 &
+        &rqcblten,rqiblten,qke
+
+   integer,  intent(in) :: p_qc,p_qi,param_first_scalar
+
+   integer :: i,j,k,itf,jtf,ktf
+
+   jtf=min0(jte,jde-1)
+   ktf=min0(kte,kde-1)
+   itf=min0(ite,ide-1)
+
+   if (.not.restart) then
+      do j=jts,jtf
+      do k=kts,ktf
+      do i=its,itf
+         rublten(i,k,j)=zero
+         rvblten(i,k,j)=zero
+         rthblten(i,k,j)=zero
+         rqvblten(i,k,j)=zero
+         if( p_qc >= param_first_scalar ) rqcblten(i,k,j)=zero
+         if( p_qi >= param_first_scalar ) rqiblten(i,k,j)=zero
+      enddo
+      enddo
+      enddo
+   endif
+
+ end subroutine mynnedmf_init
+!=================================================================================================================
+ subroutine mynnedmf_finalize ()
+ end subroutine mynnedmf_finalize
+!================================================================================================================= 
  subroutine mynnedmf_driver &
                  (ids               , ide               , jds                , jde                , &
                   kds               , kde               , ims                , ime                , &
@@ -55,7 +118,6 @@
                )
 
 !=================================================================================================================
-
 !--- input arguments:
  logical,intent(in):: &
     f_qc,               &! if true,the physics package includes the cloud liquid water mixing ratio.
@@ -69,9 +131,7 @@
     f_nbca               ! if true,the physics package includes the number concentration of black carbon.
 
  logical,intent(in):: &
-    bl_mynn_tkeadvect    !
-
- logical,intent(in):: &
+    bl_mynn_tkeadvect,  &
     do_restart,         &!
     do_DAcycling         !
 
@@ -249,7 +309,6 @@
  
  integer:: i,k,j,ic
 
- integer:: dheat_opt
  integer:: kpbl1
 
  real(kind=kind_phys):: denom
@@ -294,9 +353,6 @@
     sqv1,sqc1,sqi1,sqs1
 
 !-----------------------------------------------------------------------------------------------------------------
-!call mpas_log_write(' ')
-!call mpas_log_write('--- enter subroutine mynnedmf_driver:')
-
  errmsg = " "
  errflg = 0
 
@@ -337,15 +393,15 @@
     !    for the ozone mixing ratio; input arguments for aerosols from the aerosol-aware
     !    Thompson cloud microphysics:
     do k = kts,kte
-       qc1(k)   = 0._kind_phys
-       qi1(k)   = 0._kind_phys
-       qs1(k)   = 0._kind_phys
-       qoz1(k)  = 0._kind_phys
-       nc1(k)   = 0._kind_phys
-       ni1(k)   = 0._kind_phys
-       nifa1(k) = 0._kind_phys
-       nwfa1(k) = 0._kind_phys
-       nbca1(k) = 0._kind_phys
+       qc1(k)   = zero
+       qi1(k)   = zero
+       qs1(k)   = zero
+       qoz1(k)  = zero
+       nc1(k)   = zero
+       ni1(k)   = zero
+       nifa1(k) = zero
+       nwfa1(k) = zero
+       nbca1(k) = zero
     enddo
     if(f_qc .and. present(qc)) then
        do k = kts,kte
@@ -404,7 +460,7 @@
        enddo
     else
        do k = kts,kte
-          pattern_spp1(k) = 0._kind_phys
+          pattern_spp1(k) = zero
        enddo
     endif
 
@@ -648,8 +704,6 @@
  enddo !i
  enddo !j
 
-!call mpas_log_write('--- end subroutine mynnedmf_driver:')
-
  end subroutine mynnedmf_driver
 
 !=================================================================================================================
@@ -739,29 +793,29 @@
 
 !--- initialization:
  do k = kts,kte
-    sqc(k) = 0._kind_phys
-    sqi(k) = 0._kind_phys
+    sqc(k) = zero
+    sqi(k) = zero
  enddo
 
 !--- conversion from water vapor mixing ratio to specific humidity:
  do k = kts,kte
-    sqv(k) = qv(k)/(1.+qv(k))
+    sqv(k) = qv(k)/(one+qv(k))
  enddo
 
 !--- conversion from cloud liquid water,cloud ice,and snow mixing ratios to specific contents:
  if(f_qc) then
     do k = kts,kte
-       sqc(k) = qc(k)/(1.+qv(k))
+       sqc(k) = qc(k)/(one+qv(k))
     enddo
  endif
  if(f_qi) then
     do k = kts,kte
-       sqi(k) = qi(k)/(1.+qv(k))
+       sqi(k) = qi(k)/(one+qv(k))
     enddo
  endif
  if(f_qs) then
     do k = kts,kte
-       sqs(k) = qs(k)/(1.+qv(k))
+       sqs(k) = qs(k)/(one+qv(k))
     enddo
  endif
 
@@ -864,35 +918,35 @@
 
 !--- initialization:
  do k = kts,kte
-    sq = qv(k)/(1.+qv(k))      !conversion of qv at time-step n from mixing ratio to specific humidity.
+    sq = qv(k)/(one+qv(k))     !conversion of qv at time-step n from mixing ratio to specific humidity.
     sqv(k) = sq + dqv(k)*delt  !calculation of specific humidity at time-step n+1.
-    rq = sqv(k)/(1.-sqv(k))    !conversion of qv at time-step n+1 from specific humidity to mixing ratio.
+    rq = sqv(k)/(one-sqv(k))   !conversion of qv at time-step n+1 from specific humidity to mixing ratio.
     dqv(k) = (rq - qv(k))/delt !calculation of the tendency.
  enddo
 
  if(f_qc) then
     do k = kts,kte
-       sq = qc(k)/(1.+qv(k))
+       sq = qc(k)/(one+qv(k))
        sqc(k) = sq + dqc(k)*delt
-       rq  = sqc(k)*(1.+sqv(k))
+       rq  = sqc(k)/(one-sqv(k))
        dqc(k) = (rq - qc(k))/delt
     enddo
  endif
 
  if(f_qi) then
     do k = kts,kte
-       sq = qi(k)/(1.+qv(k))
+       sq = qi(k)/(one+qv(k))
        sqi(k) = sq + dqi(k)*delt
-       rq = sqi(k)*(1.+sqv(k))
+       rq = sqi(k)/(one-sqv(k))
        dqi(k) = (rq - qi(k))/delt
     enddo
  endif
 
  if(f_qs) then
     do k = kts,kte
-       sq = qs(k)/(1.+qv(k))
+       sq = qs(k)/(one+qv(k))
        sqs(k) = sq + dqs(k)*delt
-       rq = sqs(k)*(1.+sqv(k))
+       rq = sqs(k)/(one-sqv(k))
        dqs(k) = (rq - qs(k))/delt
     enddo
  endif

@@ -5354,11 +5354,6 @@ ENDIF
       ENDDO
     ENDIF
 
-    !ensure non-negative moist species
-    CALL moisture_check(kte, delt, delp, exner,        &
-                        sqv2, sqc2, sqi2, sqs2, thl,   &
-                        dqv, dqc, dqi, dqs, dth        )
-
     !=====================
     ! OZONE TENDENCY CHECK
     !=====================
@@ -5371,18 +5366,20 @@ ENDIF
     !===================
     ! THETA TENDENCY
     !===================
+    ! From the updated thl and the UPDATED condensate, before moisture_check:
+    ! moisture_check adds the latent heat of its own fill to dth.
     IF (FLAG_QI) THEN
       DO k=kts,kte
-         Dth(k)=(thl(k) + xlvcp/exner(k)*sqc(k)          &
-           &            + xlscp/exner(k)*(sqi(k))        & !+sqs2(k)) &
+         Dth(k)=(thl(k) + xlvcp/exner(k)*sqc2(k)          &
+           &            + xlscp/exner(k)*(sqi2(k))        & !+sqs2(k)) &
            &            - th(k))/delt
          !Dth(k)=(thl(k) + xlvcp/exner(k)*qc_tot1(k)       &
          !  &            + xlscp/exner(k)*qi_tot1(k)       &
          !  &            - th(k))/delt
          !Use form from Tripoli and Cotton (1981) with their
          !suggested min temperature to improve accuracy:
-         !Dth(k)=(thl(k)*(one+xlvcp/MAX(tk(k),TKmin)*sqc(k)  &
-         !  &               + xlscp/MAX(tk(k),TKmin)*sqi(k)) &
+         !Dth(k)=(thl(k)*(one+xlvcp/MAX(tk(k),TKmin)*sqc2(k)  &
+         !  &               + xlscp/MAX(tk(k),TKmin)*sqi2(k)) &
          !  &               - th(k))/delt
       ENDDO
     ELSE
@@ -5390,10 +5387,15 @@ ENDIF
          Dth(k)=(thl(k)+xlvcp/exner(k)*sqc2(k) - th(k))/delt
          !Use form from Tripoli and Cotton (1981) with their
          !suggested min temperature to improve accuracy.
-         !Dth(k)=(thl(k)*(one+xlvcp/MAX(tk(k),TKmin)*sqc(k))  &
+         !Dth(k)=(thl(k)*(one+xlvcp/MAX(tk(k),TKmin)*sqc2(k))  &
          !&               - th(k))/delt
       ENDDO
     ENDIF
+
+    !ensure non-negative moist species
+    CALL moisture_check(kte, delt, delp, exner,        &
+                        sqv2, sqc2, sqi2, sqs2, thl,   &
+                        dqv, dqc, dqi, dqs, dth        )
 
     !===================
     ! AEROSOL TENDENCIES

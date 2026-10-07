@@ -690,13 +690,13 @@ contains
     !-----------------------------------------------------
     !ORIGINAL CODE
     !flt = hfx/( rho(i,kts)*cpm ) &
-    ! +xlvcp*ch(i)*(sqc(kts)/exner(i,kts) -sqcg/exnerg)
+    ! +xlvcp*ch(i)*(sqc(kts)/ex1(kts) -sqcg/exnerg)
     !flq = qfx/  rho(i,kts)       &
     !    -ch(i)*(sqc(kts)   -sqcg )
     !-----------------------------------------------------
     flqv = qfx/rho1(kts)
     flqc = zero !currently no sea-spray fluxes, fog settling handled elsewhere
-    th_sfc = ts/ex1(kts)
+    th_sfc = ts/exnerg
 
     ! TURBULENT FLUX FOR TKE BOUNDARY CONDITIONS
     flq =flqv+flqc                   !! LATENT
@@ -6076,8 +6076,8 @@ else
 endif
 
 pblh=zero
-k = kthv+1
-do k=kts+1,kte-1
+!mars bug fix
+do k=max(kthv+1,kts+1),kte-1
    if (thv1(k) .ge. (minthv + delt_thv)) then
       pblh = zw1(k) - dz1(k-1)* &
       & min((thv1(k)-(minthv + delt_thv))/ &

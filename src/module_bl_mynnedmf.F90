@@ -6653,15 +6653,12 @@ END SUBROUTINE GET_PBLH
     else
        if ((landsea-1.5).GE.zero) then
           !water: increase factor to compensate for decreased pwmin/pwmax
-          !0.58*25 = 14.5
-          !0.58*20 = 11.6
-          !0.58*16 = 9.28
-          !0.58*10 = 5.8
-          !0.58*5  = 2.9
-          exc_fac = 9.28_kind_phys
+          !exc_fac = 0.58_kind_phys
+          exc_fac = 1.3_kind_phys
        else
-          !land: no need to increase factor - already sufficiently large superadiabatic layers
-          exc_fac = 0.58_kind_phys
+          !land: need to decrease factor - already sufficiently large superadiabatic layers
+          !exc_fac = 0.58_kind_phys
+          exc_fac = 0.12_kind_phys
        endif
     endif
     !decrease excess for large wind speeds
@@ -6669,8 +6666,8 @@ END SUBROUTINE GET_PBLH
 
     !Note: sigmaW is typically about 0.5*wstar
     sigmaW =csigma*wstar*(z0/pblh)**(p333)*(one - 0.8_kind_phys*z0/pblh)
-    sigmaQT=csigma*qstar*(z0/pblh)**(p333)
-    sigmaTH=csigma*thstar*(z0/pblh)**(p333)
+    sigmaQT=csigma*qstar*(z0/pblh)**(-p333)
+    sigmaTH=csigma*thstar*(z0/pblh)**(-p333)
 
     !Note: Given the pwmin & pwmax set above, these max/mins are
     !      rarely exceeded. 

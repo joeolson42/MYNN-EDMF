@@ -1,5 +1,5 @@
 !> \file module_bl_mynnedmf_driver.F90
-!!  This serves as the unified interface between the WRF/MPAS PBL drivers and the MYNN-EDMF
+!!  This serves as the unified interface between WRF/MPAS/CCPP and the MYNN-EDMF
 !!  turbulence scheme (in module_bl_mynnedmf.F90).
 
 !>\ingroup gsd_mynn_edmf
@@ -196,7 +196,7 @@
     dx,                 &!
     xland,              &!
     ps,                 &!
-    ts,                 &!
+    ts,                 &!absolute temperature (K)
     qsfc,               &!
     ust,                &!
     ch,                 &!
@@ -217,7 +217,7 @@
     exner,       &!
     rho,         &!
     rthraten      !
- real(kind_phys),intent(in),dimension(:,:,:):: pint, w
+ real(kind_phys),intent(in),dimension(ims:,kms:,jms:):: pint, w
  real(kind_phys),intent(in),dimension(ims:ime,kms:kme,jms:jme),optional:: &
     qv,          &!
     qc,          &!
@@ -290,9 +290,9 @@
     det_sqv       !
 
  real(kind_phys),intent(inout),dimension(ims:ime,jms:jme),optional:: &
-    lwp,      &!
-    iwp,      &!
-    swp,      &!
+    lwp,         &!
+    iwp,         &!
+    swp,         &!
     cldceil
  real(kind_phys),intent(out),dimension(ims:ime,jms:jme),optional::   &
     wspd10,      &!
@@ -341,9 +341,9 @@
  ! real(kind_phys),intent(in),dimension(ims:ime,jms:jme),optional:: frp_mean,emis_ant_no
  ! real(kind_phys),intent(in),dimension(ims:ime,jms:jme,ndvel),optional:: vd3d
  ! real(kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme,nchem),optional:: chem3d,settle3d
- real(kind_phys),intent(in),dimension(:,:),  optional:: frp_mean,emis_ant_no
- real(kind_phys),intent(in),dimension(:,:,:),optional:: vd3d
- real(kind_phys),intent(inout),dimension(:,:,:,:),optional:: chem3d,settle3d
+ real(kind_phys),intent(in),dimension(ims:,jms:),  optional:: frp_mean,emis_ant_no
+ real(kind_phys),intent(in),dimension(ims:,jms:,:),optional:: vd3d
+ real(kind_phys),intent(inout),dimension(ims:,jms:,kms:,:),optional:: chem3d,settle3d
  !local smoke/chem arrays
  real(kind_phys):: frp1,emisant_no1
  !real(kind_phys),dimension(ndvel):: vd1
@@ -528,17 +528,17 @@
 
        if(f_qc .and. present(qc)) then
           do k = kts,kte
-             qc1(k) = max(1e-10_kind_phys, qc(i,k,j))
+             qc1(k) = max(zero, qc(i,k,j))
           enddo
        endif
        if(f_qi .and. present(qi)) then
           do k = kts,kte
-             qi1(k) = max(1e-10_kind_phys, qi(i,k,j))
+             qi1(k) = max(zero, qi(i,k,j))
           enddo
        endif
        if(f_qs .and. present(qs)) then
           do k = kts,kte
-             qs1(k) = max(1e-10_kind_phys, qs(i,k,j))
+             qs1(k) = max(zero, qs(i,k,j))
           enddo
        endif
 
@@ -552,17 +552,17 @@
 
        if(f_qc .and. present(sqc)) then
           do k = kts,kte
-             sqc1(k) = sqc(i,k,j)
+             sqc1(k) = max(zero, sqc(i,k,j))
           enddo
        endif
        if(f_qi .and. present(sqi)) then
           do k = kts,kte
-             sqi1(k) = sqi(i,k,j)
+             sqi1(k) = max(zero, sqi(i,k,j))
           enddo
        endif
        if(f_qs .and. present(sqs)) then
           do k = kts,kte
-             sqs1(k) = sqs(i,k,j)
+             sqs1(k) = max(zero, sqs(i,k,j))
           enddo
        endif
     end if
@@ -618,15 +618,6 @@
        rqnwfablten1(k) = zero
        rqnbcablten1(k) = zero
     enddo
-    
-    if (neg_moist_check .and. present(sqi) .and. present(sqc)) then
-       !find/fix negative mixing ratios
-       call moisture_check2(kte        , delt       , delp1      , exner1     , &
-                            sqv1       , sqc1       , sqi1        , th1        )
-       do k = kts,kte
-          tk1(k)    = th1(k)*exner1(k)
-       enddo
-    endif
     
     !--- conversion from mixing ratios to specific contents:
     if (dry_mixing_ratio) then
@@ -982,91 +973,7 @@
  
  end subroutine mynnedmf_driver
 
-! ==================================================================
- subroutine moisture_check2(kte,  delt,    dp, exner, &
-                             qv,    qc,    qi,    th  )
-  !
-  ! If qc < qcmin, qi < qimin, or qv < qvmin happens in any layer,
-  ! force them to be larger than minimum value by (1) condensating 
-  ! water vapor into liquid or ice, and (2) by transporting water vapor 
-  ! from the very lower layer.
-  ! 
-  ! We then update the final state variables and tendencies associated
-  ! with this correction. If any condensation happens, update theta/temperature too.
-  ! Note that (qv,qc,qi,th) are the final state variables after
-  ! applying corresponding input tendencies and corrective tendencies.
 
-    use module_bl_mynnedmf_common, only: kind_phys,xlvcp,xlscp,zero,two,p5
-
-    implicit none
-    integer,         intent(in)     :: kte
-    real(kind_phys), intent(in)     :: delt
-    real(kind_phys), dimension(kte), intent(in)     :: dp
-    real(kind_phys), dimension(kte), intent(in)     :: exner
-    real(kind_phys), dimension(kte), intent(inout)  :: qv, qc, qi, th
-    integer   k
-    real(kind_phys) ::  dqc2, dqi2, dqv2, sum, aa, dum
-    real(kind_phys), parameter :: qvmin1= 1e-8,    & !min at k=1
-                                  qvmin = 1e-20,   & !min above k=1
-                                  qcmin = 0.0,     &
-                                  qimin = 0.0
-
-    do k = kte, 1, -1  ! From the top to the surface
-       dqc2 = max(zero, qcmin-qc(k)) !qc deficit (>=0)
-       dqi2 = max(zero, qimin-qi(k)) !qi deficit (>=0)
-
-       !update species
-       qc(k)  = qc(k)  +  dqc2
-       qi(k)  = qi(k)  +  dqi2
-       qv(k)  = qv(k)  -  dqc2 - dqi2
-       !for theta
-       th(k)  = th(k)  +  xlvcp/exner(k)*dqc2 + &
-                          xlscp/exner(k)*dqi2
-       !for temperature
-       !th(k)  = th(k)  +  xlvcp*dqc2 + &
-       !                   xlscp*dqi2
-
-       !then fix qv if lending qv made it negative
-       if (k .eq. 1) then
-          dqv2   = max(zero, qvmin1-qv(k)) !qv deficit (>=0)
-          qv(k)  = qv(k)  + dqv2
-          qv(k)  = max(qv(k),qvmin1)
-          dqv2   = zero
-       else
-          dqv2   = max(zero, qvmin-qv(k))  !qv deficit (>=0)
-          qv(k)  = qv(k)  + dqv2
-          qv(k-1)= qv(k-1)  - dqv2*dp(k)/dp(k-1)
-          qv(k)  = max(qv(k),qvmin)
-       endif
-       qc(k) = max(qc(k),qcmin)
-       qi(k) = max(qi(k),qimin)
-    end do
-
-    ! Extra moisture used to satisfy 'qv(1)>=qvmin' is proportionally
-    ! extracted from all the layers that has 'qv > 2*qvmin'. This fully
-    ! preserves column moisture.
-    if( dqv2 .gt. 1.e-20 ) then
-        sum = zero
-        do k = 1, kte
-           if( qv(k) .gt. two*qvmin ) sum = sum + qv(k)*dp(k)
-        enddo
-        aa = dqv2*dp(1)/max(1.e-20_kind_phys,sum)
-        if( aa .lt. p5 ) then
-            do k = 1, kte
-               if( qv(k) .gt. two*qvmin ) then
-                   dum    = aa*qv(k)
-                   qv(k)  = qv(k) - dum
-               endif
-            enddo
-        else
-        ! For testing purposes only (not yet found in any output):
-        !    write(*,*) 'Full moisture conservation is impossible'
-        endif
-    endif
-
-    return
-
- end subroutine moisture_check2
 !=================================================================================================================
 !>\section arg_table_mynnedmf_pre_init
 !!\html\include mynnedmf_pre_init.html

@@ -343,7 +343,7 @@
  ! real(kind_phys),intent(inout),dimension(ims:ime,kms:kme,jms:jme,nchem),optional:: chem3d,settle3d
  real(kind_phys),intent(in),dimension(ims:,jms:),  optional:: frp_mean,emis_ant_no
  real(kind_phys),intent(in),dimension(ims:,jms:,:),optional:: vd3d
-  real(kind_phys),intent(inout),dimension(ims:,kms:,jms,:),optional:: chem3d,settle3d
+ real(kind_phys),intent(inout),dimension(ims:,kms:,jms:,:),optional:: chem3d,settle3d
  !local smoke/chem arrays
  real(kind_phys):: frp1,emisant_no1
  !real(kind_phys),dimension(ndvel):: vd1

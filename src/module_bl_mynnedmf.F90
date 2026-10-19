@@ -331,7 +331,7 @@ contains
        sub_u1,sub_v1,det_sqc1,det_u1,det_v1
  real(kind_phys), dimension(kts:kte+1) ::                           & !interface
        s_aw1,s_awthl1,s_awqt1,                                      &
-       s_awqv1,s_awqc1,s_awu1,s_awv1,s_awqke1,s_awqsq1,             &
+       s_awqv1,s_awqc1,s_awqi1,s_awu1,s_awv1,s_awqke1,s_awqsq1,     &
        s_awqnc1,s_awqni1,s_awqnwfa1,s_awqnifa1,                     &
        s_awqnbca1
  real(kind_phys), dimension(kts:kte+1) ::                           & !interface
@@ -623,6 +623,7 @@ contains
     s_awqt1    =zero
     s_awqv1    =zero
     s_awqc1    =zero
+    s_awqi1    =zero
     s_awu1     =zero
     s_awv1     =zero
     s_awqke1   =zero
@@ -769,7 +770,7 @@ contains
             &bl_mynn_mixnumcon,                       &
             &bl_mynn_closure,                         &
             &u1,v1,w1,th1,thl1,thv1,tk1,              &
-            &sqw1,sqv1,sqc1,qke1,qsq1,                &
+            &sqw1,sqv1,sqc1,sqi1,qke1,qsq1,           &
             &qnc1,qni1,qnwfa1,qnifa1,qnbca1,          &
             &ex1,vt1,vq1,sgm1,                        &
             &ust,flt,fltv,flq,flqv,                   &
@@ -783,7 +784,7 @@ contains
             &edmf_qv1,edmf_u1,edmf_v1,                &
             ! for the solver
             &s_aw1,s_awthl1,s_awqt1,                  &
-            &s_awqv1,s_awqc1,                         &
+            &s_awqv1,s_awqc1,s_awqi1,                 &
             &s_awu1,s_awv1,s_awqke1,s_awqsq1,         &
             &s_awqnc1,s_awqni1,                       &
             &s_awqnwfa1,s_awqnifa1,s_awqnbca1,        &
@@ -933,7 +934,7 @@ contains
             &diss_heat1,                                 &
             ! mass flux components
             &s_aw1,s_awthl1,s_awqt1,                     &
-            &s_awqv1,s_awqc1,s_awu1,s_awv1,              &
+            &s_awqv1,s_awqc1,s_awqi1,s_awu1,s_awv1,      &
             &s_awqnc1,s_awqni1,                          &
             &s_awqnwfa1,s_awqnifa1,s_awqnbca1,           &
             &sd_aw1,sd_awthl1,sd_awqt1,                  &
@@ -3927,7 +3928,7 @@ endif
        &Dqnwfa,Dqnifa,Dqnbca,Dozone,          &
        &diss_heat,                            &
        &s_aw1,s_awthl1,                       &
-       &s_awqt1,s_awqv1,s_awqc1,              &
+       &s_awqt1,s_awqv1,s_awqc1,s_awqi1,      &
        &s_awu1,s_awv1,                        &
        &s_awqnc1,s_awqni1,                    &
        &s_awqnwfa1,s_awqnifa1,s_awqnbca1,     &
@@ -3981,8 +3982,8 @@ endif
 
 ! mass-flux plumes
     real(kind_phys), dimension(kts:kte+1), intent(in) :: s_aw1,            &
-         &s_awthl1,s_awqt1,s_awqnc1,s_awqni1,s_awqv1,s_awqc1,s_awu1,s_awv1,&
-         &s_awqnwfa1,s_awqnifa1,s_awqnbca1,                                &
+         &s_awthl1,s_awqt1,s_awqnc1,s_awqni1,s_awqv1,s_awqc1,s_awqi1,      &
+         &s_awu1,s_awv1,s_awqnwfa1,s_awqnifa1,s_awqnbca1,                  &
          &sd_aw1,sd_awthl1,sd_awqt1,sd_awqv1,sd_awqc1,sd_awqi1,            &
          &sd_awqnc1,sd_awqni1,sd_awqnwfa1,sd_awqnifa1,sd_awu1,sd_awv1
 ! tendencies from mass-flux environmental subsidence and detrainment
@@ -4639,10 +4640,10 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QI) THEN
 
    if (bl_mynn_edmf > 1) then
 
-      DO k=kts+1,kte-1
-         upcont(k)= zero !s_awqi1(k)- s_aw1(k)*(sqi(k)*upwind+sqi(k-1)*(one-upwind))
+      do k=kts+1,kte-1
+         upcont(k)= s_awqi1(k)- s_aw1(k)*(sqi(k)*upwind+sqi(k-1)*(one-upwind))
          dncont(k)=sd_awqi1(k)-sd_aw1(k)*(sqi(k)*upwind+sqi(k-1)*(one-upwind))
-      ENDDO
+      enddo
       ! no flux at the top of the atmosphere
       upcont(kte)=zero
       dncont(kte)=zero
@@ -4655,39 +4656,39 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QI) THEN
       d(1)=sqi(k)                                         &
           &    - dtz(k)*(upcont(k+1)+dncont(k+1))
 
-      DO k=kts+1,kte-1
+      do k=kts+1,kte-1
          a(k)=   - dtz(k)*khdz(k)*rhoinv(k)
          b(k)=one+ dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)
          c(k)=   - dtz(k)*khdz(k+1)*rhoinv(k)
          d(k)=sqi(k)-dtz(k)*(upcont(k+1)-upcont(k)+dncont(k+1)-dncont(k))
-      ENDDO
+      enddo
 
    else !implicit
       
       k=kts
       a(k)=  -dtz(k)*khdz(k)*rhoinv(k)
       b(k)=one+dtz(k)*(khdz(k+1)+khdz(k))*rhoinv(k)      &
-!      &  - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+      &  - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
       &  - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
       c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)                 &
-!      &  - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)               &
+      &  - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)                &
       &  - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
       d(k)=sqi(k)                                        &
-!      &  - dtz(k)*rhoinv(k)*s_awqi1(k+1)                &
+      &  - dtz(k)*rhoinv(k)*s_awqi1(k+1)                 &
       &  + dtz(k)*rhoinv(k)*sd_awqi1(k+1)
 
       do k=kts+1,kte-1
          a(k)=  -dtz(k)*khdz(k)*rhoinv(k)                &
-!         & + p5*dtz(k)*rhoinv(k)*s_aw1(k)               &
+         & + p5*dtz(k)*rhoinv(k)*s_aw1(k)                &
          & + p5*dtz(k)*rhoinv(k)*sd_aw1(k)
          b(k)=one+dtz(k)*(khdz(k)+khdz(k+1))*rhoinv(k)   &
-!         & + p5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))  &
+         & + p5*dtz(k)*rhoinv(k)*(s_aw1(k)-s_aw1(k+1))   &
          & + p5*dtz(k)*rhoinv(k)*(sd_aw1(k)-sd_aw1(k+1))
          c(k)=  -dtz(k)*khdz(k+1)*rhoinv(k)              &
-!         & - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)             &
+         & - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)              &
          & - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)
          d(k)=sqi(k)                                     &
-!         & + dtz(k)*rhoinv(k)*(s_awqi1(k)-s_awqi1(k+1)) &
+         & + dtz(k)*rhoinv(k)*(s_awqi1(k)-s_awqi1(k+1))  &
          & - dtz(k)*rhoinv(k)*(sd_awqi1(k)-sd_awqi1(k+1))
       enddo
    endif
@@ -4711,16 +4712,16 @@ IF (bl_mynn_cloudmix > 0 .AND. FLAG_QI) THEN
     c(kte)=zero
     d(kte)=sqi(kte)
 
-!    CALL tridiag(kte,a,b,c,d)
-    CALL tridiag2(kte,a,b,c,d,sqi2)
-!    CALL tridiag3(kte,a,b,c,d,sqi2)
+!    call tridiag(kte,a,b,c,d)
+    call tridiag2(kte,a,b,c,d,sqi2)
+!    call tridiag3(kte,a,b,c,d,sqi2)
 
-!    DO k=kts,kte
+!    do k=kts,kte
 !       sqi2(k)=d(k-kts+1)
-!    ENDDO
-ELSE
+!    enddo
+else
    sqi2=sqi
-ENDIF
+endif
 
 !============================================
 ! MIX SNOW ( sqs )
@@ -6177,7 +6178,7 @@ END SUBROUTINE GET_PBLH
 !!
 !! This scheme remains under development, so consider it experimental code. 
 !!
-  SUBROUTINE DMP_mf(i,j,                           &
+  subroutine dmp_mf(i,j,                           &
                  & kts,kte,dt,zw1,dz1,zagl1,       &
                  & pres1,rho1,momentum_opt,        &
                  & tke_opt,                        &
@@ -6185,7 +6186,7 @@ END SUBROUTINE GET_PBLH
                  & aerosol_opt, numcon_opt,        &
                  & bl_mynn_closure,                &
                  & u1,v1,w1,th1,thl1,thv1,tk1,     &
-                 & qt1,qv1,qc1,qke1,qsq1,          &
+                 & qt1,qv1,qc1,qi1,qke1,qsq1,      &
                  & qnc1,qni1,qnwfa1,qnifa1,qnbca1, &
                  & ex1,vt1,vq1,sgm1,               &
                  & ust,flt,fltv,flq,flqv,          &
@@ -6197,7 +6198,7 @@ END SUBROUTINE GET_PBLH
                  & edmf_qv1,edmf_u1,edmf_v1,       &
             ! outputs - variables needed for solver 
                  & s_aw1,s_awthl1,s_awqt1,         &
-                 & s_awqv1,s_awqc1,                &
+                 & s_awqv1,s_awqc1,s_awqi1,        &
                  & s_awu1,s_awv1,s_awqke1,s_awqsq1,&
                  & s_awqnc1,s_awqni1,              &
                  & s_awqnwfa1,s_awqnifa1,          &
@@ -6215,10 +6216,10 @@ END SUBROUTINE GET_PBLH
                  & qc_bl1,cldfra_bl1,              &
                  & qc_bl1_old,cldfra_bl1_old,      &
             ! inputs - flags for moist arrays
-                 & F_QC,F_QI,                      &
-                 & F_QNC,F_QNI,                    &
-                 & F_QNWFA,F_QNIFA,F_QNBCA,        &
-                 & Psig_shcu,                      &
+                 & f_qc,f_qi,                      &
+                 & f_qnc,f_qni,                    &
+                 & f_qnwfa,f_qnifa,f_qnbca,        &
+                 & psig_shcu,                      &
             ! output info
                  & maxwidth,ktop,maxmf,ztop,       &
                  & excess_h,excess_q,              &
@@ -6226,8 +6227,8 @@ END SUBROUTINE GET_PBLH
                  & spp_pbl,pattern_spp_pbl1,       &
                  & tkeprod_up,el1                  )
 
-    use module_bl_mynnedmf_common, only: gtr,p608,grav,xlvcp,ep_2,  &
-         ep_3,r_v,cp,cpv,tv0,b1,                                    &
+    use module_bl_mynnedmf_common, only: gtr,p608,grav,xlvcp,xlscp, &
+         ep_2,ep_3,r_v,cp,cpv,tv0,b1,                               &
          zero,one,two,three,four,five,thirty,hundred,               &
          p2,p3,p333,p4,p5,kind_phys
 
@@ -6238,63 +6239,93 @@ END SUBROUTINE GET_PBLH
 
 ! configuration inputs:
  integer, intent(in) ::                                            &
-      kts,                kte,                  kpbl,              &
-      momentum_opt,       tke_opt,              scalar_opt,        &
-      aerosol_opt,        numcon_opt,                              &
-      spp_pbl,            i,                    j
+      kts              , kte               , kpbl               ,  &
+      momentum_opt     , tke_opt           , scalar_opt         ,  &
+      aerosol_opt      , numcon_opt        , spp_pbl            ,  &
+      &i               , j
  real(kind_phys), intent(in):: bl_mynn_closure
  real(kind_phys), dimension(kts:kte), intent(in)  ::               &
-      pattern_spp_pbl1,zagl1
+      pattern_spp_pbl1 , zagl1
 ! state variables
  real(kind_phys), dimension(kts:kte), intent(in)  ::               &
-      &u1,v1,w1,th1,thl1,tk1,qt1,qv1,qc1,                          &
-      &ex1,dz1,thv1,pres1,rho1,qke1,qsq1,qnc1,qni1,                &
-      &qnwfa1,qnifa1,qnbca1,el1
+      &u1              , v1                , w1                 ,  &
+      &th1             , thl1              , tk1                ,  &
+      &qt1             , qv1               , qc1                ,  &
+      &qi1             , ex1               , dz1                ,  &
+      &thv1            , pres1             , rho1               ,  &
+      &qke1            , qsq1              , qnc1               ,  &
+      &qni1            , qnwfa1            , qnifa1             ,  &
+      &qnbca1          , el1
  real(kind_phys),dimension(kts:kte+1), intent(in) ::               &
       &zw1
  real(kind_phys), intent(in)                      ::               &
-      &flt,fltv,flq,flqv,Psig_shcu,                                &
-      &landsea,ts,dx,dt,ust,pblh
- logical, optional :: F_QC,F_QI,F_QNC,F_QNI,F_QNWFA,F_QNIFA,F_QNBCA
+      &flt             , fltv              , flq                ,  &
+      &flqv            , psig_shcu         , landsea            ,  &
+      &ts              , dx                , dt                 ,  &
+      &ust             , pblh
+ logical, optional :: f_qc,f_qi,f_qnc,f_qni,f_qnwfa,f_qnifa,f_qnbca
 
  ! outputs - updraft properties
  real(kind_phys),dimension(kts:kte), intent(inout) ::              &
-      &edmf_a1,edmf_w1,edmf_qt1,edmf_thl1,edmf_ent1,edmf_qc1,      &
-      &edmf_u1,edmf_v1,edmf_qv1
- ! add one local edmf variable:
-  real(kind_phys),dimension(kts:kte) :: edmf_th1
+      &edmf_a1         , edmf_w1           , edmf_qt1           ,  &
+      &edmf_thl1       , edmf_ent1         , edmf_qc1           ,  &
+      &edmf_u1         , edmf_v1           , edmf_qv1
+ ! add local edmf variables:
+  real(kind_phys),dimension(kts:kte) :: edmf_th1,edmf_qi1
  ! output
  integer,         intent(inout) :: ktop
- real(kind_phys), intent(inout) :: maxmf,ztop,maxwidth,            &
-      &excess_h,excess_q
+ real(kind_phys), intent(inout) ::                                 &
+      &maxmf           , ztop              , maxwidth           ,  &
+      &excess_h        , excess_q
  ! outputs - variables needed for solver: sum ai*rho*wis_awphi
  real(kind_phys),dimension(kts:kte+1), intent(inout) ::            &
-      &s_aw1,s_awthl1,s_awqt1,s_awqv1,s_awqc1,s_awqnc1,s_awqni1,   &
-      &s_awqnwfa1,s_awqnifa1,s_awqnbca1,s_awu1,s_awv1,             &
-      &s_awqke1,s_awqsq1
+      &s_aw1           , s_awthl1          , s_awqt1            ,  &
+      &s_awqv1         , s_awqc1           , s_awqi1            ,  &
+      &s_awqnc1        , s_awqni1          , s_awqnwfa1         ,  &
+      &s_awqnifa1      , s_awqnbca1        , s_awu1             ,  &
+      &s_awv1          , s_awqke1          , s_awqsq1
  real(kind_phys),dimension(kts:kte+1) :: s_aw2
 
  real(kind_phys),dimension(kts:kte), intent(inout) ::              &
-      &qc_bl1,cldfra_bl1,qc_bl1_old,cldfra_bl1_old,tkeprod_up
- integer, parameter :: nup=8, debug_mf=0
+      &qc_bl1          , cldfra_bl1        , qc_bl1_old         ,  &
+      &cldfra_bl1_old  , tkeprod_up
+
+ !configuration
+ integer, parameter :: nup=8
+ integer, parameter :: debug_mf=0
  real(kind_phys)    :: nup2
 
  !------------- local variables -------------------
  ! updraft properties defined on interfaces (k=1 is the top of the
  ! first model layer
- real(kind_phys),dimension(kts:kte+1,1:NUP) ::                     &
-      &UPW,UPTHL,UPQT,UPQC,UPQV,                                   &
-      &UPA,UPU,UPV,UPTHV,UPQKE,UPQSQ,UPQNC,                        &
-      &UPQNI,UPQNWFA,UPQNIFA,UPQNBCA
+ real(kind_phys),dimension(kts:kte+1,1:nup) ::                     &
+      &upw             , upthl             , upqt               ,  &
+      &upqc            , upqi              , upqv               ,  &
+      &upa             , upu               , upv                ,  &
+      &upthv           , upqke             , upqsq              ,  &
+      &upqnc           , upqni             , upqnwfa            ,  &
+      &upqnifa         , upqnbca
  ! entrainment defined as the mass-layer mean
- real(kind_phys),dimension(kts:kte,1:NUP) :: ENT
+ real(kind_phys),dimension(kts:kte,1:nup) :: ent
  ! internal variables
  integer :: k,ip,k50
- real(kind_phys):: fltv2,wstar,qstar,thstar,sigmaW,sigmaQT,        &
-      &sigmaTH,z0,pwmin,pwmax,wmin,wmax,wlv,Psig_w,maxw,maxqc,wpbl
- real(kind_phys):: B,QTn,THLn,THVn,QCn,Un,Vn,QKEn,QSQn,QNCn,QNIn,  &
-      &  QNWFAn,QNIFAn,QNBCAn,upak,                                &
-      &  Wn2,Wn,EntEXP,EntEXM,EntW,BCOEFF,THVkm1,THVk,Pk,rho_int
+ real(kind_phys)::                                                 &
+      &fltv2           , wstar             , qstar              ,  &
+      &thstar          , sigmaw            , sigmaqt            ,  &
+      &sigmath         , z0                , pwmin              ,  &
+      &pwmax           , wmin              , wmax               ,  &
+      &wlv             , psig_w            , maxw               ,  &
+      &maxqc           , wpbl
+ real(kind_phys)::                                                 &
+      &b               , qtn               , thln               ,  &
+      &thvn            , qcn               , qin                ,  &
+      &un              , vn                , qken               ,  &
+      &qsqn            , qncn              , qnin               ,  &
+      &qnwfan          , qnifan            , qnbcan             ,  &
+      &upak            , wn2               , wn                 ,  &
+      &entexp          , entexm            , entw               ,  &
+      &bcoeff          , thvkm1            , thvk               ,  &
+      &pk              , rho_int
 
  ! w parameters-used in the original entrainment form
  real(kind_phys), parameter ::                                     &
@@ -6344,7 +6375,7 @@ END SUBROUTINE GET_PBLH
  ! Variables interpolated to interface levels
  real(kind_phys),dimension(kts:kte) :: exneri,dzi,rhoi,qti
  ! Variables for plume interpolation/saturation check 
- real(kind_phys):: THp, QTp, QCp, QCs, esat, qsl
+ real(kind_phys):: THp, QTp, QCp, QIp, QCs, esat, qsl
  real(kind_phys):: csigma,acfac,ac_wsp
 
  !plume overshoot
@@ -6402,6 +6433,7 @@ END SUBROUTINE GET_PBLH
  upu       =zero
  upv       =zero
  upqc      =zero
+ upqi      =zero
  upqv      =zero
  upqke     =zero
  upqsq     =zero
@@ -6424,6 +6456,7 @@ END SUBROUTINE GET_PBLH
  edmf_thl1 =zero
  edmf_ent1 =zero
  edmf_qc1  =zero
+ edmf_qi1  =zero
  edmf_qv1  =zero
  edmf_u1   =zero
  edmf_v1   =zero
@@ -6436,6 +6469,7 @@ END SUBROUTINE GET_PBLH
  s_awqt1   =zero
  s_awqv1   =zero
  s_awqc1   =zero
+ s_awqi1   =zero
  s_awu1    =zero
  s_awv1    =zero
  s_awqke1  =zero
@@ -6691,7 +6725,8 @@ END SUBROUTINE GET_PBLH
        UPV(2,ip)    =(v1(kts)    *dz1(kts+1)+v1(kts+1)    *dz1(kts))/(dz1(kts)+dz1(kts+1))
        UPQC(2,ip)   =zero
        !UPQC(1,ip)  =(qc1(kts)*dz1(kts+1)+qc1(kts+1)*dz1(kts))/(dz1(kts)+dz1(kts+1))
-
+       UPQI(2,ip)   =(qi1(kts)*dz1(kts+1)+qi1(kts+1)*dz1(kts))/(dz1(kts)+dz1(kts+1))
+       
        exc_heat     =exc_fac*UPW(2,ip)*sigmaTH/sigmaW
        UPTHV(2,ip)  =(thv1(kts)  *dz1(kts+1)+thv1(kts+1)  *dz1(kts))/(dz1(kts)+dz1(kts+1)) &
            &        + exc_heat
@@ -6797,6 +6832,7 @@ END SUBROUTINE GET_PBLH
           EntExp =ENT(k,ip)*dz1(k)
           EntExm =EntExp*p333    !reduce entrainment for momentum
           QTn    =UPQT(k,IP)   *(one-EntExp) + qt1(k)*EntExp
+          QIn    =UPQI(k,IP)   *(one-EntExp) + qi1(k)*EntExp
           THLn   =UPTHL(k,IP)  *(one-EntExp) + thl1(k)*EntExp
           Un     =UPU(k,IP)    *(one-EntExm) + u1(k)*EntExm + dxsa*pgfac*(Uk - Ukm1)
           Vn     =UPV(k,IP)    *(one-EntExm) + v1(k)*EntExm + dxsa*pgfac*(Vk - Vkm1)
@@ -6941,7 +6977,10 @@ END SUBROUTINE GET_PBLH
              UPTHV(k+1,IP)=THVn
              UPTHL(k+1,IP)=THLn
              UPQT(k+1,IP)=QTn
-             UPQC(k+1,IP)=QCn
+             !plume condensation produces liquid only, even though qt may be composed of qi.
+             !Therefore, some of the condensate could be ice, so remove that portion.
+             UPQC(k+1,IP)=max(zero, QCn - QIn)
+             UPQI(k+1,IP)=QIn
              UPU(k+1,IP)=Un
              UPV(k+1,IP)=Vn
              UPQKE(k+1,IP)=QKEn
@@ -7015,6 +7054,7 @@ END SUBROUTINE GET_PBLH
           s_aw1(k)   = s_aw1(k)    + rhoi(k)*UPA(K,ip)*UPW(K,ip)*Psig_w
           s_awthl1(k)= s_awthl1(k) + rhoi(k)*UPA(K,ip)*UPW(K,ip)*UPTHL(K,ip)*Psig_w
           s_awqt1(k) = s_awqt1(k)  + rhoi(k)*UPA(K,ip)*UPW(K,ip)*UPQT(K,ip)*Psig_w
+          s_awqi1(k) = s_awqi1(k)  + rhoi(k)*UPA(K,ip)*UPW(K,ip)*UPQI(K,ip)*Psig_w
           !to conform to grid mean properties, move qc to qv in grid mean
           !saturated layers, so total water fluxes are preserved but 
           !negative qc fluxes in unsaturated layers is reduced.
@@ -7024,9 +7064,11 @@ END SUBROUTINE GET_PBLH
 !            qc_plume = zero
 !         endif
           s_awqc1(k) = s_awqc1(k)  + rhoi(k)*UPA(K,ip)*UPW(K,ip)*qc_plume*Psig_w
-          s_awqv1(k) = s_awqt1(k)  - s_awqc1(k)
        ENDDO
     ENDDO
+    do k=kts,kte-1
+       s_awqv1(k) = max(zero, s_awqt1(k) - s_awqc1(k) - s_awqi1(k))
+    enddo
     !momentum
     if (momentum_opt > 0) then
        do ip=1,nup
@@ -7110,6 +7152,7 @@ END SUBROUTINE GET_PBLH
       s_awthl1   = s_awthl1*adjustment
       s_awqt1    = s_awqt1*adjustment
       s_awqc1    = s_awqc1*adjustment
+      s_awqi1    = s_awqi1*adjustment
       s_awqv1    = s_awqv1*adjustment
       if (numcon_opt > 0) then
          s_awqnc1   = s_awqnc1*adjustment
@@ -7152,6 +7195,7 @@ END SUBROUTINE GET_PBLH
       edmf_thl1(k)=edmf_thl1(k)+upa(k+1,ip)*UPTHL(k+1,ip)
       edmf_ent1(k)=edmf_ent1(k)+upa(k+1,ip)*ENT(k+1,ip)
       edmf_qc1(k) =edmf_qc1(k) +upa(k+1,ip)*UPQC(k+1,ip)
+      edmf_qi1(k) =edmf_qi1(k) +upa(k+1,ip)*UPQI(k+1,ip)
    enddo
    do ip=1,nup
       do k=kts+1,ktop_plume(ip)-1  !within the plume, we can interpolate:
@@ -7167,6 +7211,12 @@ END SUBROUTINE GET_PBLH
          else
             edmf_qc1(k) =edmf_qc1(k) +upak*(upqc(k+1,ip)*dzi(k) + upqc(k,ip)*dzi(k+1))/(dzi(k+1)+dzi(k))
          endif
+         if (abs(upqi(k,ip)) < 1e-10_kind_phys .and. upqi(k+1,ip) > zero) then
+            !mass at cloud base is kept equal to the interface value
+            edmf_qi1(k) =edmf_qi1(k) +upak*upqi(k+1,ip)
+         else
+            edmf_qi1(k) =edmf_qi1(k) +upak*(upqi(k+1,ip)*dzi(k) + upqi(k,ip)*dzi(k+1))/(dzi(k+1)+dzi(k))
+         endif
       enddo
    enddo
    !Now use a single level at the top of the plume so there is no averaging with zeros above:
@@ -7178,6 +7228,7 @@ END SUBROUTINE GET_PBLH
       edmf_thl1(k)=edmf_thl1(k)+upa(k,ip)*upthl(k,ip)
       edmf_ent1(k)=edmf_ent1(k)+upa(k,ip)*ent(k,ip)
       edmf_qc1(k) =edmf_qc1(k) +upa(k,ip)*upqc(k,ip)
+      edmf_qi1(k) =edmf_qi1(k) +upa(k,ip)*upqi(k,ip)
    enddo
    do k=kts,kte-1
       !Note that only edmf_a1 is multiplied by Psig_w. This helps with the scale/regime-awareness.
@@ -7187,6 +7238,7 @@ END SUBROUTINE GET_PBLH
          edmf_thl1(k)=edmf_thl1(k)/edmf_a1(k)
          edmf_ent1(k)=edmf_ent1(k)/edmf_a1(k)
          edmf_qc1(k) =edmf_qc1(k)/edmf_a1(k)
+         edmf_qi1(k) =edmf_qi1(k)/edmf_a1(k)
          edmf_a1(k)  =edmf_a1(k)*Psig_w
       endif
    enddo ! end k                                                                                                                                                                                     
@@ -7293,7 +7345,7 @@ END SUBROUTINE GET_PBLH
    !First, compute plume theta & total water at interfaces (qti)
    !These values do not need to be defined at k=kte (unused level).
    DO k=kts,kte-1
-      edmf_th1(k)= edmf_thl1(k) + xlvcp/ex1(k)*edmf_qc1(K)
+      edmf_th1(k)= edmf_thl1(k) + xlvcp/ex1(k)*edmf_qc1(K) + xlscp/ex1(k)*edmf_qi1(K)
       qti(k+1)   =(qt1(k)*dz1(k+1)+qt1(k+1)*dz1(k))/(dz1(k+1)+dz1(k))
    ENDDO
    qti(kts)=qt1(kts)
@@ -7304,7 +7356,7 @@ END SUBROUTINE GET_PBLH
    cb_check = 0
    do k=kts+1,kte-2
       if (k > KTOP) exit
-      if (edmf_qc1(k) > zero ) then !.and. (cldfra_bl1(k) < cf_thresh))THEN
+      if ((edmf_qc1(k)+edmf_qi1(k)) > zero ) then !.and. (cldfra_bl1(k) < cf_thresh))THEN
          if (cb_check == 0) then
             mf_at_cb = edmf_a1(k)*edmf_w1(k)
             cb_check = 1
@@ -7314,6 +7366,7 @@ END SUBROUTINE GET_PBLH
           THp = edmf_th1(k)
           QTp = edmf_qt1(k)
           QCp = edmf_qc1(k)
+          QIp = edmf_qi1(k)
           dqwdz = (qti(k)-qti(k+1))/dz1(k) !pos = decreasing upward
           !convert TH to T
           !t = THp*exner(k)
@@ -7333,7 +7386,7 @@ END SUBROUTINE GET_PBLH
           b9  = a*rsl                         ! CB02 variable "b" 
 
           q2p = xlvcp/ex1(k)
-          pt  = thl1(k) +q2p*QCp*Aup ! potential temp (env + plume)
+          pt  = thl1(k) + (q2p*QCp + xlscp/ex1(k)*QIp)*Aup ! potential temp (env + plume)
           bb  = b9*tk1(k)/pt ! bb is "b9" in BCMT95.  Their "b9" differs from
                              ! "b9" in CB02 by a factor
                              ! of T/theta.  Strictly, b9 above is formulated in
@@ -7414,12 +7467,12 @@ END SUBROUTINE GET_PBLH
              !else
              !   qc_mf     = 1.20_kind_phys * (QCp * Aup)
              !endif
-             qc_mf     = qcfac * (QCp * Aup) 
+             qc_mf     = qcfac * ((QCp+QIp) * Aup) 
           else                             ! land
-             if (QCp * Aup > 5e-5) then
-                qc_mf     = 1.86_kind_phys * (QCp * Aup) - 2.2e-5_kind_phys
+             if ((QCp+QIp) * Aup > 5e-5) then
+                qc_mf     = 1.86_kind_phys * ((QCp+QIp) * Aup) - 2.2e-5_kind_phys
              else
-                qc_mf     = 1.20_kind_phys * (QCp * Aup)
+                qc_mf     = 1.20_kind_phys * ((QCp+QIp) * Aup)
              endif
           endif
             !In the condition of very large cloud fractions, where the instantaneous

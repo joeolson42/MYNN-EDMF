@@ -7,6 +7,7 @@ dummy:
 
 OBJS = \
 	module_bl_mynnedmf_common.o	\
+	module_bl_mynnedmf_diags.o	\
 	module_bl_mynnedmf.o		\
 	module_bl_mynnedmf_driver.o
 
@@ -17,11 +18,15 @@ mynnedmf: $(OBJS)
 module_bl_mynnedmf_common.o: \
 	../../../mpas_atmphys_constants.o
 
+module_bl_mynnedmf_diags.o: \
+	module_bl_mynnedmf_common.o
+
 module_bl_mynnedmf.o: \
 	module_bl_mynnedmf_common.o
 
 module_bl_mynnedmf_driver.o: \
 	module_bl_mynnedmf.o \
+	module_bl_mynnedmf_diags.o \
 	module_bl_mynnedmf_common.o
 
 clean:

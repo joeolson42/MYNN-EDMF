@@ -4099,7 +4099,7 @@ endif
     a(1)=zero
     b(1)=one + dtz(k)*(kmdz(k+1) + rhosfc*ust*ustovwsp)*rhoinv(k) 
     c(1)=    - dtz(k)*kmdz(k+1)*rhoinv(k)
-    d(1)=u(k)+ dtz(k)*uoce*ust*ustovwsp*rhosfc*rhoinv(k)*              &
+    d(1)=u(k)+ dtz(k)*uoce*ust*ustovwsp*rhosfc*rhoinv(k)               &
              - dtz(k)*(upcont(k+1)+dncont(k+1))
 
     DO k=kts+1,kte-1

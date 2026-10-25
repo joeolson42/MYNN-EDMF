@@ -1786,7 +1786,7 @@ contains
         elt = MIN( MAX( alp1*elt/vsc, 8._kind_phys), elt_max)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt + ( vq(kts)+tv0 )*flq
-        vflx= fltv-0.005_kind_phys
+        vflx= fltv-0.002_kind_phys
         vsc = ( gtr*elt*MAX( vflx, zero ) )**p333
 
         !   **  Strictly, el(i,j,1) is not zero.  **
@@ -1908,7 +1908,7 @@ contains
         elt = MIN( MAX(alp1*elt/vsc, ten), 400.)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt +( vq(kts)+tv0 )*flq
-        vflx = fltv
+        vflx = fltv-0.002_kind_phys
         vsc  = ( gtr*elt*MAX( vflx, zero ) )**p333
 
         !   **  Strictly, el(i,j,1) is not zero.  **
@@ -4097,9 +4097,9 @@ endif
 
     k=kts
     a(1)=zero
-    b(1)=one + dtz(k)*(kmdz(k+1)+rhosfc*ust*ustovwsp)*rhoinv(k) 
+    b(1)=one + dtz(k)*(kmdz(k+1) + rhosfc*ust*ustovwsp)*rhoinv(k) 
     c(1)=    - dtz(k)*kmdz(k+1)*rhoinv(k)
-    d(1)=u(k)+ dtz(k)*uoce*ust**2/wspd*rho(k)                      &
+    d(1)=u(k)+ dtz(k)*uoce*ust*ustovwsp*rhosfc*rhoinv(k)*              &
              - dtz(k)*(upcont(k+1)+dncont(k+1))
 
     DO k=kts+1,kte-1
@@ -4115,13 +4115,13 @@ endif
     k=kts
     !rho-weighted (drag in b-vector):
     a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)
-    b(k)=one+dtz(k)*(kmdz(k+1)+rhosfc*ust*ustovwsp)*rhoinv(k)      &
+    b(k)=one+dtz(k)*(kmdz(k+1) + rhosfc*ust*ustovwsp)*rhoinv(k)    &
            & - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff                &
            & - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
     c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                             &
            & - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff                &
            & - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-    d(k)=u(k)  + dtz(k)*uoce*ust**2/wspd                           &
+    d(k)=u(k)  + dtz(k)*rhosfc*rhoinv(k)*uoce*ust*ustovwsp         &
            & - dtz(k)*rhoinv(k)*s_awu1(k+1)*onoff                  &
            & + dtz(k)*rhoinv(k)*sd_awu1(k+1)*onoff                 &
            & + sub_u(k)*delt + det_u(k)*delt
@@ -4181,15 +4181,15 @@ endif
        dncont(k)=onoff*(sd_awv1(k)-sd_aw1(k)*(v(k)*upwind+v(k-1)*(one-upwind)))
     ENDDO
     ! no flux at the top of the atmosphere
-    upcont(kte)=0.
-    dncont(kte)=0.
+    upcont(kte)=zero
+    dncont(kte)=zero
     ! upcont(1) and dncont(1) are not used so they don't need to be set
 
     k=kts
     a(1)=zero
     b(1)=one + dtz(k)*(kmdz(k+1)+rhosfc*ust*ustovwsp)*rhoinv(k)
     c(1)=    - dtz(k)*kmdz(k+1)*rhoinv(k)
-    d(1)=v(k)+ dtz(k)*voce*ust**2/wspd*rho(k)                      &
+    d(1)=v(k)+ dtz(k)*rhosfc*rhoinv(k)*voce*ust*ustovwsp               &
              - dtz(k)*(upcont(k+1)+dncont(k+1))
 
     DO k=kts+1,kte-1
@@ -4205,13 +4205,13 @@ endif
     k=kts
     !rho-weighted (drag in b-vector):
     a(k)=  -dtz(k)*kmdz(k)*rhoinv(k)
-    b(k)=one+dtz(k)*(kmdz(k+1) + rhosfc*ust**2/wspd)*rhoinv(k)    &
+    b(k)=one+dtz(k)*(kmdz(k+1) + rhosfc*ust*ustovwsp)*rhoinv(k)   &
         &  - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff                 &
         &  - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
     c(k)=  -dtz(k)*kmdz(k+1)*rhoinv(k)                            &
         &  - p5*dtz(k)*rhoinv(k)*s_aw1(k+1)*onoff                 &
         &  - p5*dtz(k)*rhoinv(k)*sd_aw1(k+1)*onoff
-    d(k)=v(k)  + dtz(k)*voce*ust**2/wspd                          &
+    d(k)=v(k)  + dtz(k)*rhosfc*rhoinv(k)*voce*ust**2/wspd         &
         &  - dtz(k)*rhoinv(k)*s_awv1(k+1)*onoff                   &
         &  + dtz(k)*rhoinv(k)*sd_awv1(k+1)*onoff                  &
         &  + sub_v(k)*delt + det_v(k)*delt

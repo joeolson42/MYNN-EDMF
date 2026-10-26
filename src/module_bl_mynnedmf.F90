@@ -1786,7 +1786,7 @@ contains
         elt = MIN( MAX( alp1*elt/vsc, 8._kind_phys), elt_max)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt + ( vq(kts)+tv0 )*flq
-        vflx= fltv-0.002_kind_phys
+        vflx= fltv-0.004_kind_phys
         vsc = ( gtr*elt*MAX( vflx, zero ) )**p333
 
         !   **  Strictly, el(i,j,1) is not zero.  **
@@ -1908,7 +1908,7 @@ contains
         elt = MIN( MAX(alp1*elt/vsc, ten), 400.)
         !avoid use of buoyancy flux functions which are ill-defined at the surface
         !vflx = ( vt(kts)+one )*flt +( vq(kts)+tv0 )*flq
-        vflx = fltv-0.002_kind_phys
+        vflx = fltv-0.004_kind_phys
         vsc  = ( gtr*elt*MAX( vflx, zero ) )**p333
 
         !   **  Strictly, el(i,j,1) is not zero.  **
